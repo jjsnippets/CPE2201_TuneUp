@@ -1,3 +1,5 @@
 /bin/
 *.class
-test.db
+*.db
+songs/
+*.pdf

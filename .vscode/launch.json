@@ -6,6 +6,13 @@
     "configurations": [
         {
             "type": "java",
+            "name": "Application",
+            "request": "launch",
+            "mainClass": "Application",
+            "projectName": "CPE2201_TuneUp_c2d2d89c"
+        },
+        {
+            "type": "java",
             "name": "Test Launch",
             "request": "launch",
             "mainClass": "test.Main",
