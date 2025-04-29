@@ -8,7 +8,8 @@ import java.sql.Connection;
 import java.sql.SQLException;
 
 import java.sql.ResultSet;
-import java.sql.Statement; 
+import java.sql.Statement;
+import java.util.concurrent.TimeUnit; 
 
 /**
  * Main application class for TuneUp.
@@ -84,7 +85,7 @@ public class Application {
     private static void printDatabaseContents() {
         System.out.println("\n--- Printing Database Contents ---");
 
-        String selectAllSQL = "SELECT id, title, artist, genre, audio_file_path, lyrics_file_path FROM songs ORDER BY artist, title";
+        String selectAllSQL = "SELECT id, title, artist, genre, duration, audio_file_path, lyrics_file_path FROM songs ORDER BY artist, title";
 
         // Use try-with-resources for automatic resource management
         try (Connection conn = DatabaseUtil.getConnection();
@@ -100,15 +101,18 @@ public class Application {
                 String title = rs.getString("title");
                 String artist = rs.getString("artist");
                 String genre = rs.getString("genre"); // Can be null
+                long duration = rs.getLong("duration");
+                String durationFormatted = String.format("%d:%02d", TimeUnit.MILLISECONDS.toMinutes(duration), TimeUnit.MILLISECONDS.toSeconds(duration) % 60);
                 String audioPath = rs.getString("audio_file_path");
                 String lyricsPath = rs.getString("lyrics_file_path"); // Can be null
 
                 // Print the retrieved data
-                System.out.printf("ID: %d | Title: %s | Artist: %s | Genre: %s | Audio: %s | Lyrics: %s%n",
+                System.out.printf("ID: %d | Title: %s | Artist: %s | Genre: %s | Duration: %s | Audio: %s | Lyrics: %s%n",
                                   id,
                                   title,
                                   artist,
                                   (genre != null ? genre : "N/A"), // Handle null genre nicely
+                                  durationFormatted,
                                   audioPath,
                                   (lyricsPath != null ? lyricsPath : "N/A")); // Handle null lyrics path nicely
             }

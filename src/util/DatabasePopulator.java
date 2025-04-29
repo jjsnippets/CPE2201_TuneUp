@@ -36,8 +36,8 @@ public class DatabasePopulator {
 
         // SQL statement for inserting a new song. Using placeholders (?) for security.
         // Matches the schema defined in DatabaseInitializer.
-        String insertSQL = "INSERT INTO songs (title, artist, genre, audio_file_path, lyrics_file_path) " +
-                           "VALUES (?, ?, ?, ?, ?)";
+        String insertSQL =  "INSERT INTO songs (title, artist, genre, duration, " +
+                            "audio_file_path, lyrics_file_path) VALUES (?, ?, ?, ?, ?, ?)";
 
         int songsAdded = 0;
         int filesProcessed = 0;
@@ -75,6 +75,7 @@ public class DatabasePopulator {
                         String title = metadata.get("title");
                         String artist = metadata.get("artist");
                         String genre = metadata.get("genre"); // Can be null
+                        long duration = parseDuration(metadata.get("length"));
 
                         // Basic validation: Title and Artist are required (NOT NULL in DB schema)
                         if (title == null || title.trim().isEmpty() || artist == null || artist.trim().isEmpty()) {
@@ -87,8 +88,9 @@ public class DatabasePopulator {
                         pstmt.setString(1, title.trim()); // Use trimmed values
                         pstmt.setString(2, artist.trim());
                         pstmt.setString(3, genre != null ? genre.trim() : null); // Set genre or NULL
-                        pstmt.setString(4, mp3FilePath); // Use absolute path for audio
-                        pstmt.setString(5, lrcFilePath); // Use absolute path for lyrics
+                        pstmt.setLong(4, duration);  // Set duration
+                        pstmt.setString(5, mp3FilePath); // Use absolute path for audio
+                        pstmt.setString(6, lrcFilePath); // Use absolute path for lyrics
 
                         // Execute the insert statement
                         int affectedRows = pstmt.executeUpdate();
@@ -150,5 +152,30 @@ public class DatabasePopulator {
             return fileName.substring(0, lastDot);
         }
         return fileName; // No extension found
+    }
+
+    /**
+     * Helper method to parse the duration from a string.
+     * Example: "3:45" -> 225000 (milliseconds)
+     *
+     * @param durationStr The duration string in "MM:SS" format.
+     * @return The duration in milliseconds.
+     */
+    private static long parseDuration(String durationStr) {
+        if (durationStr == null || durationStr.isEmpty()) {
+            return 0; // Default to 0 if no duration is provided
+        }
+        String[] parts = durationStr.split(":");
+        if (parts.length != 2) {
+            return 0; // Invalid format, return 0
+        }
+        try {
+            long minutes = Long.parseLong(parts[0]);
+            long seconds = Long.parseLong(parts[1]);
+            return (minutes * 60 + seconds) * 1000; // Convert to milliseconds
+        } catch (NumberFormatException e) {
+            System.err.println("Error parsing duration: " + durationStr + " - " + e.getMessage());
+            return 0; // Return 0 on error
+        }
     }
 }

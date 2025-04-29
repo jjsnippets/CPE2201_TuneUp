@@ -1,6 +1,7 @@
 package model; // Define the package for model classes
 
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Represents a song entity within the TuneUp application.
@@ -23,6 +24,9 @@ public class Song {
     // The genre of the song (FR2.1, FR2.2).
     private final String genre;
 
+    // Duration in milliseconds
+    private final long duration;  
+
     // The file path to the audio file (e.g., .mp3) for this song (FR1.1).
     private final String audioFilePath;
 
@@ -40,7 +44,8 @@ public class Song {
      * @param lyricsFilePath The file path to the lyrics file. Can be null if no lyrics exist.
      * @throws NullPointerException if title, artist, or audioFilePath are null.
      */
-    public Song(int id, String title, String artist, String genre, String audioFilePath, String lyricsFilePath) {
+    public Song(int id, String title, String artist, String genre, long duration, String audioFilePath, String lyricsFilePath) {
+
         // Basic validation for required fields
         Objects.requireNonNull(title, "Title cannot be null");
         Objects.requireNonNull(artist, "Artist cannot be null");
@@ -50,6 +55,7 @@ public class Song {
         this.title = title;
         this.artist = artist;
         this.genre = genre; // Genre can be optional/null
+        this.duration = duration;
         this.audioFilePath = audioFilePath;
         this.lyricsFilePath = lyricsFilePath; // Lyrics file path can be optional/null
     }
@@ -89,6 +95,14 @@ public class Song {
     }
 
     /**
+     * Gets the duration of the song in milliseconds.
+     * @return The song duration.
+     */
+    public long getDuration() {
+        return duration;
+    }
+
+    /**
      * Gets the file path to the audio file.
      * @return The audio file path.
      */
@@ -120,6 +134,7 @@ public class Song {
         //        ", title='" + title + '\'' +
         //        ", artist='" + artist + '\'' +
         //        ", genre='" + genre + '\'' +
+        //        ", duration=" + String.format("(%d:%02d)", TimeUnit.MILLISECONDS.toMinutes(duration), TimeUnit.MILLISECONDS.toSeconds(duration) % 60) + '\'' +
         //        ", audioFilePath='" + audioFilePath + '\'' +
         //        ", lyricsFilePath='" + lyricsFilePath + '\'' +
         //        '}';

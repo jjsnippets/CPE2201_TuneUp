@@ -31,12 +31,12 @@ public class LrcParser {
     // Regex specifically for required metadata tags: ti, ar, genre
     // Captures the tag name (group 1) and the value (group 2)
     private static final Pattern METADATA_TAG_PATTERN = Pattern.compile(
-            "^\\[(ti|ar|genre):(.*)\\]\\s*$");
+            "^\\[(ti|ar|genre|length):(.*)\\]\\s*$");
 
     // Regex to skip other common metadata lines if needed (though not strictly necessary
     // if we only process lines matched by METADATA_TAG_PATTERN for metadata)
     private static final Pattern OTHER_METADATA_LINE_PATTERN = Pattern.compile(
-            "^\\[(al|au|length|by|offset|re|ve):.*\\]\\s*$");
+            "^\\[(al|au|by|offset|re|ve):.*\\]\\s*$");
 
 
     // Private constructor to prevent instantiation.
@@ -59,6 +59,7 @@ public class LrcParser {
         metadata.put("title", null);
         metadata.put("artist", null);
         metadata.put("genre", null);
+        metadata.put("length", null);
 
         Path path = Paths.get(filePath);
 
@@ -67,7 +68,7 @@ public class LrcParser {
             while ((line = reader.readLine()) != null) {
                 Matcher matcher = METADATA_TAG_PATTERN.matcher(line.trim());
                 if (matcher.matches()) {
-                    String key = matcher.group(1).toLowerCase(); // "ti", "ar", or "genre"
+                    String key = matcher.group(1).toLowerCase(); // "ti", "ar", "genre", or "length"
                     String value = matcher.group(2).trim();
 
                     // Map LRC tag names to desired map keys and store if not already found
@@ -81,6 +82,9 @@ public class LrcParser {
                             break;
                         case "genre":
                             if (metadata.get("genre") == null) metadata.put("genre", value);
+                            break;
+                        case "length":
+                            if (metadata.get("length") == null) metadata.put("length", value);
                             break;
                     }
 
