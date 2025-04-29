@@ -11,6 +11,10 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.concurrent.TimeUnit; 
 
+import dao.SongDAO;
+import model.Song;
+import java.util.List;
+
 /**
  * Main application class for TuneUp.
  */
@@ -69,7 +73,7 @@ public class Application {
         }
 
 
-        // 4. TEMPORARY: Print database contents for verification
+        // 4. TEMPORARY Test method
         printDatabaseContents(); // <-- ADD THIS LINE
 
         System.out.println("\nTuneUp Application initialization complete.");
@@ -79,10 +83,11 @@ public class Application {
     }
 
     /**
-     * TEMPORARY method to query and print all entries from the 'songs' table.
+     * TEMPORARY method for all tests 
      * Used for verification purposes after database initialization and population.
      */
     private static void printDatabaseContents() {
+        // Test to query and print all entries from the 'songs' table.
         System.out.println("\n--- Printing Database Contents ---");
 
         String selectAllSQL = "SELECT id, title, artist, genre, duration, audio_file_path, lyrics_file_path FROM songs ORDER BY artist, title";
@@ -129,9 +134,65 @@ public class Application {
             e.printStackTrace();
         }
         System.out.println("--- End of Database Contents ---");
+
+        System.out.println("\n--- Testing getAllSongs() ---");
+        List<Song> allSongs = SongDAO.getAllSongs();
+        if (allSongs.isEmpty()) {
+            System.out.println("No songs found in the database.");
+        } else {
+            for (Song song : allSongs) {
+                System.out.println(song);
+            }
+        }
+
+        // Test getAllSongs() method
+        System.out.println("\n--- Testing getAllSongs() ---");
+        
+        // Test findSongsByCriteria() method
+        System.out.println("\n--- Testing findSongsByCriteria() ---");
+
+        // Example search: search for songs with 'love' in title or artist, no genre filter
+        List<Song> searchResults1 = SongDAO.findSongsByCriteria("love", null);
+        System.out.println("Search for 'love' (no genre filter):");
+        if (searchResults1.isEmpty()) {
+            System.out.println("No matching songs found.");
+        } else {
+            for (Song song : searchResults1) {
+                System.out.println(song);
+            }
+        }
+
+        // Example search: search for songs with 'john' in title or artist, genre filter 'Pop'
+        List<Song> searchResults2 = SongDAO.findSongsByCriteria("john", "Pop");
+        System.out.println("\nSearch for 'john' with genre 'Pop':");
+        if (searchResults2.isEmpty()) {
+            System.out.println("No matching songs found.");
+        } else {
+            for (Song song : searchResults2) {
+                System.out.println(song);
+            }
+        }
+
+        // Example search: no search text, genre filter 'Rock'
+        List<Song> searchResults3 = SongDAO.findSongsByCriteria(null, "Rock");
+        System.out.println("\nSearch with genre 'Rock' only:");
+        if (searchResults3.isEmpty()) {
+            System.out.println("No matching songs found.");
+        } else {
+            for (Song song : searchResults3) {
+                System.out.println(song);
+            }
+        }
+
+        // Example search: no search text, no genre filter (should return all songs)
+        List<Song> searchResults4 = SongDAO.findSongsByCriteria(null, null);
+        System.out.println("\nSearch with no filters (all songs):");
+        if (searchResults4.isEmpty()) {
+            System.out.println("No songs found in the database.");
+        } else {
+            for (Song song : searchResults4) {
+                System.out.println(song);
+            }
+        }
     }
-
-    // ... main method definition ...
 }
-
-
