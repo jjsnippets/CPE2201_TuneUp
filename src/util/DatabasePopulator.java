@@ -34,111 +34,139 @@ public class DatabasePopulator {
             return 0;
         }
 
-        // SQL statement for inserting a new song. Using placeholders (?) for security.
-        // Matches the schema defined in DatabaseInitializer.
+        // SQL statement for inserting a new song.
         String insertSQL = "INSERT INTO songs (title, artist, genre, duration, offset, audio_file_path, lyrics_file_path) " +
-                           "VALUES (?, ?, ?, ?, ?, ?, ?)"; // 7 placeholders
+                           "VALUES (?, ?, ?, ?, ?, ?, ?)";
 
+        // Counters for summary report
         int songsAdded = 0;
         int filesProcessed = 0;
-        int errorsEncountered = 0;
+        int errorsOrSkipped = 0; // Combined counter for simplicity in reporting
 
-        // Use try-with-resources for the database connection and prepared statement.
+        // Use try-with-resources for database connection and listing files
         try (Connection conn = DatabaseUtil.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(insertSQL);
-             // Use Files.list within try-with-resources to ensure the stream is closed.
+             PreparedStatement pstmt = conn.prepareStatement(insertSQL); // Prepare statement once
              Stream<Path> stream = Files.list(dir)) {
 
             // Iterate over files in the directory
-            for (Path lrcPath : (Iterable<Path>) stream::iterator) {
+            for (Path path : (Iterable<Path>) stream::iterator) {
                 // Process only files ending with .lrc (case-insensitive check)
-                if (Files.isRegularFile(lrcPath) && lrcPath.toString().toLowerCase().endsWith(".lrc")) {
+                if (Files.isRegularFile(path) && path.toString().toLowerCase().endsWith(".lrc")) {
                     filesProcessed++;
-                    String lrcFilePath = lrcPath.toAbsolutePath().toString();
-                    String baseName = getBaseName(lrcPath.getFileName().toString());
-
-                    // Construct the expected path for the corresponding .mp3 file
-                    Path mp3Path = dir.resolve(baseName + ".mp3");
-                    String mp3FilePath = mp3Path.toAbsolutePath().toString();
-
-                    // Check if the corresponding .mp3 file exists
-                    if (!Files.exists(mp3Path)) {
-                        System.err.println("Warning: Corresponding MP3 file not found for: " + lrcPath.getFileName() + ". Skipping.");
-                        errorsEncountered++;
-                        continue; // Skip this LRC file
-                    }
-
-                    try {
-                        // Parse metadata from the LRC file
-                        Map<String, Object> metadata = LrcParser.parseMetadataTags(lrcFilePath);
-
-                        String title = (String) metadata.get("title");
-                        String artist = (String) metadata.get("artist");
-                        String genre = (String) metadata.get("genre"); // Can be null
-                        Integer duration = (Integer) metadata.get("duration"); // Can be null
-                        Long offset = (Long) metadata.get("offset"); // Can be null
-
-                        // Basic validation: Title and Artist are required (NOT NULL in DB schema)
-                        if (title == null || title.trim().isEmpty() || artist == null || artist.trim().isEmpty()) {
-                            System.err.println("Warning: Missing required metadata (title or artist) in LRC file: " + lrcPath.getFileName() + ". Skipping.");
-                             errorsEncountered++;
-                            continue; // Skip this entry
-                        }
-
-                        // Set parameters for the PreparedStatement
-                        pstmt.setString(1, title.trim()); // Use trimmed values
-                        pstmt.setString(2, artist.trim());
-                        pstmt.setString(3, genre != null ? genre.trim() : null); // Set genre or NULL
-                        pstmt.setObject(4, duration); // Use setObject for nullable Integer
-                        pstmt.setObject(5, offset);   // Use setObject for nullable Long
-                        pstmt.setString(6, mp3FilePath); // Use absolute path for audio
-                        pstmt.setString(7, lrcFilePath); // Use absolute path for lyrics
-
-                        // Execute the insert statement
-                        int affectedRows = pstmt.executeUpdate();
-                        if (affectedRows > 0) {
-                            songsAdded++;
-                            // System.out.println("Added song: " + title + " - " + artist); // Optional: log success
-                        }
-
-                    } catch (IOException e) {
-                        System.err.println("Error reading or parsing LRC file: " + lrcPath.getFileName() + " - " + e.getMessage());
-                        errorsEncountered++;
-                    } catch (SQLException e) {
-                        // Specifically check for unique constraint violation (duplicate entry)
-                        if (e.getErrorCode() == 19 && e.getMessage().contains("UNIQUE constraint failed: songs.audio_file_path")) {
-                            System.err.println("Warning: Song with audio path already exists in DB: " + mp3FilePath + ". Skipping duplicate.");
-                            // This is expected if run multiple times, treat as a warning not a hard error count.
-                        } else {
-                            // Handle other SQL errors during insertion
-                            System.err.println("Database error inserting record for: " + lrcPath.getFileName() + " - SQLState: " + e.getSQLState() + " ErrorCode: " + e.getErrorCode() + " Message: " + e.getMessage());
-                            errorsEncountered++;
-                        }
-                    } catch (InvalidPathException | ClassCastException e) {
-                        System.err.println("Error processing metadata for: " + lrcPath.getFileName() + " - " + e.getMessage());
-                        errorsEncountered++;
+                    // Process the file and update counters based on outcome
+                    boolean added = processSingleLrcFile(path, dir, pstmt);
+                    if (added) {
+                        songsAdded++;
+                    } else {
+                        // Increment if not added (includes skips and errors reported within helper)
+                        errorsOrSkipped++;
                     }
                 } // end if .lrc file
             } // end for each path
 
         } catch (IOException e) {
             System.err.println("Error listing files in directory: " + directoryPath + " - " + e.getMessage());
-            errorsEncountered++; // Count this as an error
+            errorsOrSkipped++; // Count this as an error
         } catch (SQLException e) {
             System.err.println("Database connection or statement preparation error: " + e.getMessage());
             e.printStackTrace(); // Print stack trace for critical DB errors
-            // Return early might be appropriate if connection fails
-            return songsAdded; // Return songs added so far
+            // Population likely failed significantly, return songs added so far
+            // return songsAdded; // Or maybe 0 depending on desired behavior
+        } finally {
+            // Ensure summary is printed even if SQLException occurred during processing loop
+            printSummary(filesProcessed, songsAdded, errorsOrSkipped);
         }
 
+        return songsAdded;
+    }
+
+    /**
+     * Processes a single LRC file: finds matching MP3, parses metadata, validates,
+     * and attempts to insert into the database using the provided PreparedStatement.
+     * Errors and skips are logged directly within this method.
+     *
+     * @param lrcPath The Path object for the .lrc file.
+     * @param containingDir The directory Path where the lrc file resides.
+     * @param pstmt The PreparedStatement (already prepared with INSERT SQL) to use.
+     * @return true if the song was successfully added, false otherwise (due to skip or error).
+     */
+    private static boolean processSingleLrcFile(Path lrcPath, Path containingDir, PreparedStatement pstmt) {
+        String lrcFileName = lrcPath.getFileName().toString();
+        String baseName = getBaseName(lrcFileName);
+
+        // Construct and check for the corresponding .mp3 file
+        Path mp3Path = containingDir.resolve(baseName + ".mp3");
+        if (!Files.exists(mp3Path)) {
+            System.err.println("Warning: Corresponding MP3 file not found for: " + lrcFileName + ". Skipping.");
+            return false; // Not added
+        }
+
+        String lrcFilePathAbs = lrcPath.toAbsolutePath().toString();
+        String mp3FilePathAbs = mp3Path.toAbsolutePath().toString();
+
+        try {
+            // Parse metadata (including duration and offset)
+            Map<String, Object> metadata = LrcParser.parseMetadataTags(lrcFilePathAbs);
+
+            String title = (String) metadata.get("title");
+            String artist = (String) metadata.get("artist");
+            String genre = (String) metadata.get("genre");
+            Integer duration = (Integer) metadata.get("duration");
+            Long offset = (Long) metadata.get("offset");
+
+            // Validate required metadata
+            if (title == null || title.trim().isEmpty() || artist == null || artist.trim().isEmpty()) {
+                System.err.println("Warning: Missing required metadata (title or artist) in LRC file: " + lrcFileName + ". Skipping.");
+                return false; // Not added
+            }
+
+            // Set parameters for the PreparedStatement
+            pstmt.setString(1, title.trim());
+            pstmt.setString(2, artist.trim());
+            pstmt.setString(3, genre != null ? genre.trim() : null);
+            pstmt.setObject(4, duration); // setObject handles null Integer
+            pstmt.setObject(5, offset);   // setObject handles null Long
+            pstmt.setString(6, mp3FilePathAbs);
+            pstmt.setString(7, lrcFilePathAbs);
+
+            // Execute the insert statement
+            int affectedRows = pstmt.executeUpdate();
+            return affectedRows > 0; // Return true if added
+
+        } catch (IOException e) {
+            System.err.println("Error reading or parsing LRC file: " + lrcFileName + " - " + e.getMessage());
+        } catch (SQLException e) {
+            // Handle unique constraint violation gracefully (as a skip, not error)
+            if (e.getErrorCode() == 19 && e.getMessage().contains("UNIQUE constraint failed: songs.audio_file_path")) {
+                System.err.println("Warning: Song with audio path already exists in DB: " + mp3FilePathAbs + ". Skipping duplicate.");
+            } else {
+                // Log other SQL errors during insertion
+                System.err.println("Database error inserting record for: " + lrcFileName + " - SQLState: " + e.getSQLState() + " ErrorCode: " + e.getErrorCode() + " Message: " + e.getMessage());
+            }
+        } catch (InvalidPathException | ClassCastException e) {
+            System.err.println("Error processing metadata or path for: " + lrcFileName + " - " + e.getMessage());
+        } catch (Exception e) { // Catch unexpected errors during processing
+            System.err.println("Unexpected error processing file: " + lrcFileName + " - " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        return false; // Return false if any error/skip occurred
+    }
+
+    /**
+     * Prints the summary report of the population process.
+     *
+     * @param filesProcessed Total LRC files looked at.
+     * @param songsAdded Total songs successfully inserted.
+     * @param errorsOrSkipped Total files that were skipped or caused an error.
+     */
+    private static void printSummary(int filesProcessed, int songsAdded, int errorsOrSkipped) {
         System.out.println("-----------------------------------------");
         System.out.println("Database Population Summary:");
         System.out.println(" - LRC files processed: " + filesProcessed);
         System.out.println(" - New songs added:     " + songsAdded);
-        System.out.println(" - Errors/Warnings:     " + errorsEncountered);
+        System.out.println(" - Files skipped/errors:" + errorsOrSkipped); // Updated label
         System.out.println("-----------------------------------------");
-
-        return songsAdded;
     }
 
     /**
@@ -150,34 +178,8 @@ public class DatabasePopulator {
      */
     private static String getBaseName(String fileName) {
         int lastDot = fileName.lastIndexOf('.');
-        if (lastDot > 0) {
-            return fileName.substring(0, lastDot);
-        }
-        return fileName; // No extension found
+        return (lastDot > 0) ? fileName.substring(0, lastDot) : fileName;
     }
 
-    /**
-     * Helper method to parse the duration from a string.
-     * Example: "3:45" -> 225000 (milliseconds)
-     *
-     * @param durationStr The duration string in "MM:SS" format.
-     * @return The duration in milliseconds.
-     */
-    private static long parseDuration(String durationStr) {
-        if (durationStr == null || durationStr.isEmpty()) {
-            return 0; // Default to 0 if no duration is provided
-        }
-        String[] parts = durationStr.split(":");
-        if (parts.length != 2) {
-            return 0; // Invalid format, return 0
-        }
-        try {
-            long minutes = Long.parseLong(parts[0]);
-            long seconds = Long.parseLong(parts[1]);
-            return (minutes * 60 + seconds) * 1000; // Convert to milliseconds
-        } catch (NumberFormatException e) {
-            System.err.println("Error parsing duration: " + durationStr + " - " + e.getMessage());
-            return 0; // Return 0 on error
-        }
-    }
+    // Removed the redundant parseDuration(String) method
 }
