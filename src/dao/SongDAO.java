@@ -31,12 +31,12 @@ public class SongDAO {
     public static List<Song> getAllSongs() {
         List<Song> songs = new ArrayList<>();
         // SQL query to select all columns from the songs table, ordered for consistent display
-        String sql = "SELECT id, title, artist, genre, duration, audio_file_path, lyrics_file_path FROM songs ORDER BY artist ASC, title ASC";
+        String sql = "SELECT id, title, artist, genre, duration, offset, audio_file_path, lyrics_file_path FROM songs ORDER BY artist ASC, title ASC";
 
         // Use try-with-resources for automatic closing of connection, statement, and result set
         try (Connection conn = DatabaseUtil.getConnection();
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
+            Statement stmt = conn.createStatement();
+            ResultSet rs = stmt.executeQuery(sql)) {
 
             // Iterate through the results
             while (rs.next()) {
@@ -67,7 +67,7 @@ public class SongDAO {
     public static List<Song> findSongsByCriteria(String searchText, String genreFilter) {
         List<Song> songs = new ArrayList<>();
         // Base SQL query
-        StringBuilder sqlBuilder = new StringBuilder("SELECT id, title, artist, genre, duration, audio_file_path, lyrics_file_path FROM songs");
+        StringBuilder sqlBuilder = new StringBuilder("SELECT id, title, artist, genre, duration, offset, audio_file_path, lyrics_file_path FROM songs");
         List<Object> parameters = new ArrayList<>(); // To hold query parameters safely
         boolean hasWhereClause = false;
 
@@ -140,10 +140,12 @@ public class SongDAO {
         if (rs.wasNull()) { // Check if the integer value was SQL NULL
             duration = null; // Set Java Integer to null if database value was NULL
         }
+        long offsetVal = rs.getLong("offset");
+            Long offset = rs.wasNull() ? null : offsetVal; // Store as Long if not null
         String audioPath = rs.getString("audio_file_path");
         String lyricsPath = rs.getString("lyrics_file_path");
 
         // Create and return a new Song object using the retrieved data
-        return new Song(id, title, artist, genre, duration, audioPath, lyricsPath);
+        return new Song(id, title, artist, genre, duration, offset, audioPath, lyricsPath);
     }
 }

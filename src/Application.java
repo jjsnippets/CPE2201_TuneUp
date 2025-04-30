@@ -15,6 +15,23 @@ import dao.SongDAO;
 import model.Song;
 import java.util.List;
 
+
+
+
+// Imports needed for the SongLyrics test
+import util.LrcParser; // Import LrcParser
+import model.LyricLine;
+import model.SongLyrics;
+import java.io.IOException; // For potential parsing errors
+import java.nio.file.InvalidPathException; // For potential path errors
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+
 /**
  * Main application class for TuneUp.
  */
@@ -73,8 +90,9 @@ public class Application {
         }
 
 
-        // 4. TEMPORARY Test method
-        printDatabaseContents(); // <-- ADD THIS LINE
+        // 4. TEMPORARY Test methods
+        printDatabaseContents();
+        testSongLyrics(); 
 
         System.out.println("\nTuneUp Application initialization complete.");
         System.out.println("Ready for further implementation (DAO, Services, UI)...");
@@ -90,7 +108,7 @@ public class Application {
         // Test to query and print all entries from the 'songs' table.
         System.out.println("\n--- Printing Database Contents ---");
 
-        String selectAllSQL = "SELECT id, title, artist, genre, duration, audio_file_path, lyrics_file_path FROM songs ORDER BY artist, title";
+        String selectAllSQL = "SELECT id, title, artist, genre, duration, offset, audio_file_path, lyrics_file_path FROM songs ORDER BY artist, title";
 
         // Use try-with-resources for automatic resource management
         try (Connection conn = DatabaseUtil.getConnection();
@@ -106,20 +124,24 @@ public class Application {
                 String title = rs.getString("title");
                 String artist = rs.getString("artist");
                 String genre = rs.getString("genre"); // Can be null
-                long duration = rs.getLong("duration");
-                String durationFormatted = String.format("%d:%02d", TimeUnit.MILLISECONDS.toMinutes(duration), TimeUnit.MILLISECONDS.toSeconds(duration) % 60);
+                Integer duration = rs.getInt("duration");
+                    String durationFormatted = String.format("%d:%02d", TimeUnit.MILLISECONDS.toMinutes(duration), TimeUnit.MILLISECONDS.toSeconds(duration) % 60);
+                long offsetVal = rs.getLong("offset");
+                    Long offset = rs.wasNull() ? null : offsetVal;
                 String audioPath = rs.getString("audio_file_path");
                 String lyricsPath = rs.getString("lyrics_file_path"); // Can be null
 
                 // Print the retrieved data
-                System.out.printf("ID: %d | Title: %s | Artist: %s | Genre: %s | Duration: %s | Audio: %s | Lyrics: %s%n",
-                                  id,
-                                  title,
-                                  artist,
-                                  (genre != null ? genre : "N/A"), // Handle null genre nicely
-                                  durationFormatted,
-                                  audioPath,
-                                  (lyricsPath != null ? lyricsPath : "N/A")); // Handle null lyrics path nicely
+                System.out.printf("ID: %d | Title: %s | Artist: %s | Genre: %s | Duration: (%d ms) %-7s | Offset: %-6s ms | Audio: %s | Lyrics: %s%n",
+                                    id,
+                                    title,
+                                    artist,
+                                    (genre != null ? genre : "N/A"), // Handle null genre nicely
+                                    duration,
+                                    durationFormatted,
+                                    (offset != null ? offset : "N/A"), // Handle null offset nicely
+                                    audioPath,
+                                    (lyricsPath != null ? lyricsPath : "N/A")); // Handle null lyrics path nicely
             }
 
             if (count == 0) {
@@ -194,5 +216,111 @@ public class Application {
                 System.out.println(song);
             }
         }
+    }
+
+    private static void testSongLyrics() {
+        System.out.println("\n--- Testing SongLyrics Functionality (using first DB song) ---");
+
+        // 1. Get the first song from the database
+        List<Song> allSongs = SongDAO.getAllSongs();
+        if (allSongs.isEmpty()) {
+            System.out.println("Database is empty. Cannot test SongLyrics with DB data.");
+            return;
+        }
+        Song firstSong = allSongs.get(0);
+        System.out.println("Testing with Song: " + firstSong.getTitle() + " - " + firstSong.getArtist());
+
+        // 2. Check if the song has a lyrics file path
+        String lyricsFilePath = firstSong.getLyricsFilePath();
+        if (lyricsFilePath == null || lyricsFilePath.trim().isEmpty()) {
+            System.out.println("First song in DB has no lyrics file path associated. Cannot test lyrics parsing/timing.");
+            return;
+        }
+        System.out.println("Using Lyrics File: " + lyricsFilePath);
+
+        // 3. Parse the lyrics file using LrcParser
+        SongLyrics loadedLyrics = null;
+        try {
+            // Use the parser that returns the SongLyrics object directly
+            loadedLyrics = LrcParser.parseLyrics(lyricsFilePath);
+            System.out.println("Successfully parsed lyrics. Offset found: " + loadedLyrics.getOffsetMillis() + "ms. Lines found: " + loadedLyrics.getSize());
+        } catch (IOException | InvalidPathException e) {
+            System.err.println("Error parsing lyrics file '" + lyricsFilePath + "': " + e.getMessage());
+            return; // Cannot proceed with testing if parsing failed
+        } catch (Exception e) {
+            // Catch any other unexpected errors during parsing
+             System.err.println("Unexpected error during lyrics parsing for '" + lyricsFilePath + "': " + e.getMessage());
+             e.printStackTrace();
+             return;
+        }
+
+        // 4. Perform tests using the loaded SongLyrics object
+
+        // Basic checks
+        System.out.println("isEmpty check: " + loadedLyrics.isEmpty());
+
+        // Test getLineAtTime and getIndexAtTime at various points
+        List<LyricLine> lines = loadedLyrics.getLines();
+        long offset = loadedLyrics.getOffsetMillis();
+
+        if (lines.isEmpty()) {
+            System.out.println("Lyrics file parsed, but contained no timed lines. Testing at arbitrary time.");
+            long testTime = 15000; // 15 seconds
+            System.out.println("Time: " + testTime + "ms -> Expected: null / -1 | Actual Line: " + loadedLyrics.getLineAtTime(testTime) + " | Actual Index: " + loadedLyrics.getIndexAtTime(testTime));
+        } else {
+            // Select meaningful time points based on the actual loaded lyrics
+            long timeBeforeFirst = 0;
+            long firstLineEffectiveTime = lines.get(0).getTimestampMillis() + offset;
+            long timeAtFirst = Math.max(0, firstLineEffectiveTime); // Ensure time is not negative
+
+            long lastLineEffectiveTime = lines.get(lines.size() - 1).getTimestampMillis() + offset;
+            long timeAtLast = Math.max(0, lastLineEffectiveTime);
+
+            // Calculate a time roughly in the middle
+            long timeMiddle = (lines.size() > 1) ? (timeAtFirst + timeAtLast) / 2 : timeAtFirst;
+
+            long timeAfterLast = timeAtLast + 10000; // 10 seconds after the last line's timestamp
+
+            // Create a list of times to test
+            List<Long> testTimes = List.of(
+                timeBeforeFirst,
+                Math.max(0, timeAtFirst - 1), // Just before the first line hits
+                timeAtFirst,                  // Exactly when the first line hits
+                timeMiddle,                   // Somewhere in the middle
+                Math.max(0, timeAtLast - 1),  // Just before the last line hits (if different from first)
+                timeAtLast,                   // Exactly when the last line hits
+                timeAfterLast                 // Well after the last line
+            );
+
+             System.out.println("\nTesting getLineAtTime / getIndexAtTime:");
+            for (long time : testTimes) {
+                // Get the expected line/index (for easier visual comparison)
+                LyricLine expectedLine = null;
+                int expectedIndex = -1;
+                 for (int i = 0; i < lines.size(); i++) {
+                     LyricLine line = lines.get(i);
+                     long effectiveTimestamp = line.getTimestampMillis() + offset;
+                     if (effectiveTimestamp <= time) {
+                         expectedLine = line;
+                         expectedIndex = i;
+                     } else {
+                         break;
+                     }
+                 }
+
+                LyricLine actualLine = loadedLyrics.getLineAtTime(time);
+                int actualIndex = loadedLyrics.getIndexAtTime(time);
+
+                System.out.printf("Time: %-7d ms -> Expected Line: %-40s | Expected Idx: %-2d | Actual Line: %-40s | Actual Idx: %-2d%n",
+                                 time,
+                                 (expectedLine != null ? expectedLine.getText() : "null"),
+                                 expectedIndex,
+                                 (actualLine != null ? actualLine.getText() : "null"),
+                                 actualIndex
+                                 );
+            }
+        }
+
+        System.out.println("\n--- End of SongLyrics Testing ---");
     }
 }

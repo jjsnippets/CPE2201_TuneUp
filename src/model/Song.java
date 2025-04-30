@@ -25,7 +25,10 @@ public class Song {
     private final String genre;
 
     // Duration in milliseconds
-    private final long duration;  
+    private final long duration;
+
+    // offset in milliseconds (nullable)
+    private final Long offset;
 
     // The file path to the audio file (e.g., .mp3) for this song (FR1.1).
     private final String audioFilePath;
@@ -40,11 +43,13 @@ public class Song {
      * @param title          The title of the song. Cannot be null.
      * @param artist         The artist of the song. Cannot be null.
      * @param genre          The genre of the song. Can be null if not specified.
+     * @param duration       The duration of the song in milliseconds. Cannot be negative.
+     * @param offset        The global offset in milliseconds. Can be null.
      * @param audioFilePath  The file path to the audio file. Cannot be null.
      * @param lyricsFilePath The file path to the lyrics file. Can be null if no lyrics exist.
      * @throws NullPointerException if title, artist, or audioFilePath are null.
      */
-    public Song(int id, String title, String artist, String genre, long duration, String audioFilePath, String lyricsFilePath) {
+    public Song(int id, String title, String artist, String genre, Integer duration, Long offset, String audioFilePath, String lyricsFilePath) {
 
         // Basic validation for required fields
         Objects.requireNonNull(title, "Title cannot be null");
@@ -56,6 +61,7 @@ public class Song {
         this.artist = artist;
         this.genre = genre; // Genre can be optional/null
         this.duration = duration;
+        this.offset = offset;
         this.audioFilePath = audioFilePath;
         this.lyricsFilePath = lyricsFilePath; // Lyrics file path can be optional/null
     }
@@ -103,6 +109,14 @@ public class Song {
     }
 
     /**
+     * Gets the global offset in milliseconds.
+     * @return The global offset, or null if not specified.
+     */
+    public Long getOffset() {
+        return offset;
+    }
+
+    /**
      * Gets the file path to the audio file.
      * @return The audio file path.
      */
@@ -135,6 +149,7 @@ public class Song {
         //        ", artist='" + artist + '\'' +
         //        ", genre='" + genre + '\'' +
         //        ", duration=" + String.format("(%d:%02d)", TimeUnit.MILLISECONDS.toMinutes(duration), TimeUnit.MILLISECONDS.toSeconds(duration) % 60) + '\'' +
+        //        ", offset=" + offset +
         //        ", audioFilePath='" + audioFilePath + '\'' +
         //        ", lyricsFilePath='" + lyricsFilePath + '\'' +
         //        '}';

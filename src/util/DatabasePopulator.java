@@ -36,8 +36,8 @@ public class DatabasePopulator {
 
         // SQL statement for inserting a new song. Using placeholders (?) for security.
         // Matches the schema defined in DatabaseInitializer.
-        String insertSQL =  "INSERT INTO songs (title, artist, genre, duration, " +
-                            "audio_file_path, lyrics_file_path) VALUES (?, ?, ?, ?, ?, ?)";
+        String insertSQL = "INSERT INTO songs (title, artist, genre, duration, offset, audio_file_path, lyrics_file_path) " +
+                           "VALUES (?, ?, ?, ?, ?, ?, ?)"; // 7 placeholders
 
         int songsAdded = 0;
         int filesProcessed = 0;
@@ -69,13 +69,14 @@ public class DatabasePopulator {
                     }
 
                     try {
-                        // Parse metadata (title, artist, genre) from the LRC file
-                        Map<String, String> metadata = LrcParser.parseMetadataTags(lrcFilePath);
+                        // Parse metadata from the LRC file
+                        Map<String, Object> metadata = LrcParser.parseMetadataTags(lrcFilePath);
 
-                        String title = metadata.get("title");
-                        String artist = metadata.get("artist");
-                        String genre = metadata.get("genre"); // Can be null
-                        long duration = parseDuration(metadata.get("length"));
+                        String title = (String) metadata.get("title");
+                        String artist = (String) metadata.get("artist");
+                        String genre = (String) metadata.get("genre"); // Can be null
+                        Integer duration = (Integer) metadata.get("duration"); // Can be null
+                        Long offset = (Long) metadata.get("offset"); // Can be null
 
                         // Basic validation: Title and Artist are required (NOT NULL in DB schema)
                         if (title == null || title.trim().isEmpty() || artist == null || artist.trim().isEmpty()) {
@@ -88,9 +89,10 @@ public class DatabasePopulator {
                         pstmt.setString(1, title.trim()); // Use trimmed values
                         pstmt.setString(2, artist.trim());
                         pstmt.setString(3, genre != null ? genre.trim() : null); // Set genre or NULL
-                        pstmt.setLong(4, duration);  // Set duration
-                        pstmt.setString(5, mp3FilePath); // Use absolute path for audio
-                        pstmt.setString(6, lrcFilePath); // Use absolute path for lyrics
+                        pstmt.setObject(4, duration); // Use setObject for nullable Integer
+                        pstmt.setObject(5, offset);   // Use setObject for nullable Long
+                        pstmt.setString(6, mp3FilePath); // Use absolute path for audio
+                        pstmt.setString(7, lrcFilePath); // Use absolute path for lyrics
 
                         // Execute the insert statement
                         int affectedRows = pstmt.executeUpdate();
@@ -105,16 +107,16 @@ public class DatabasePopulator {
                     } catch (SQLException e) {
                         // Specifically check for unique constraint violation (duplicate entry)
                         if (e.getErrorCode() == 19 && e.getMessage().contains("UNIQUE constraint failed: songs.audio_file_path")) {
-                             System.err.println("Warning: Song with audio path already exists in DB: " + mp3FilePath + ". Skipping duplicate.");
-                             // This is expected if run multiple times, treat as a warning not a hard error count.
+                            System.err.println("Warning: Song with audio path already exists in DB: " + mp3FilePath + ". Skipping duplicate.");
+                            // This is expected if run multiple times, treat as a warning not a hard error count.
                         } else {
                             // Handle other SQL errors during insertion
                             System.err.println("Database error inserting record for: " + lrcPath.getFileName() + " - SQLState: " + e.getSQLState() + " ErrorCode: " + e.getErrorCode() + " Message: " + e.getMessage());
                             errorsEncountered++;
                         }
-                    } catch (InvalidPathException e) {
-                         System.err.println("Error: Invalid file path generated for: " + lrcPath.getFileName() + " - " + e.getMessage());
-                         errorsEncountered++;
+                    } catch (InvalidPathException | ClassCastException e) {
+                        System.err.println("Error processing metadata for: " + lrcPath.getFileName() + " - " + e.getMessage());
+                        errorsEncountered++;
                     }
                 } // end if .lrc file
             } // end for each path

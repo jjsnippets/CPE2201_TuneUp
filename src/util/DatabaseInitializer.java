@@ -31,7 +31,8 @@ public class DatabaseInitializer {
                 title TEXT NOT NULL,
                 artist TEXT NOT NULL,
                 genre TEXT,
-                duration INTEGER,
+                duration INTEGER, -- duration in milliseconds (nullable)
+                offset INTEGER,   -- global offset in milliseconds (nullable)
                 audio_file_path TEXT NOT NULL UNIQUE,
                 lyrics_file_path TEXT
             );
