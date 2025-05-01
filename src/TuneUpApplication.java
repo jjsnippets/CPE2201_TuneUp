@@ -3,12 +3,15 @@
 import javafx.application.Application;
 import javafx.stage.Stage;
 import javafx.scene.Scene;
-import javafx.scene.layout.BorderPane; // Example layout
-import javafx.scene.control.Label;    // Example control
+import javafx.scene.Parent;           // For loaded root
 import javafx.scene.control.Alert;    // For showing errors
 import javafx.fxml.FXMLLoader;        // For loading FXML later
 import java.io.IOException;           // For FXML loading errors
 import java.net.URL;                  // For FXML loading path
+
+import service.PlayerService;       // Import service
+import service.LyricsService;       // Import service
+import controller.MainController;   // Import controller
 
 // Imports from previous version for initialization/testing
 import util.ApplicationInitializer;
@@ -20,7 +23,9 @@ import util.DevelopmentTester;
  */
 public class TuneUpApplication extends javafx.application.Application {
 
-    private boolean initializationOk = false; // Flag to track successful initialization
+    private PlayerService playerService;        // Hold service instance
+    private LyricsService lyricsService;        // Hold service instance
+    private boolean initializationOk = false;   // Flag to track successful initialization
 
     /**
      * Initialization method called by JavaFX toolkit before start().
@@ -33,6 +38,12 @@ public class TuneUpApplication extends javafx.application.Application {
     public void init() throws Exception {
         super.init(); // Call superclass init is good practice
         System.out.println("TuneUp Application Initializing Backend...");
+
+        // Create service instances EARLY (before init completes is fine)
+        // They don't depend on UI thread
+        this.playerService = new PlayerService();
+        this.lyricsService = new LyricsService();
+        System.out.println("Services instantiated.");
 
         // Initialize core components (DB, Schema, Population)
         this.initializationOk = ApplicationInitializer.initializeApplication();
@@ -61,82 +72,62 @@ public class TuneUpApplication extends javafx.application.Application {
      */
     @Override
     public void start(Stage primaryStage) {
-         System.out.println("Starting JavaFX UI...");
+        System.out.println("Starting JavaFX UI...");
 
-         // Check if initialization in init() failed and show error/exit
-         if (!this.initializationOk) {
-             showErrorDialog("Initialization Error",
-                             "Application Initialization Failed",
-                             "The application could not initialize backend components (database, etc.). Please check logs. Exiting.");
-             // Platform.exit(); // Use Platform.exit() for graceful JavaFX shutdown, but System.exit might be needed if Platform isn't running yet
-             System.exit(1); // Force exit
-             return; // Stop further UI setup
-         }
-
-        // Set the title for the main window
-        primaryStage.setTitle("TuneUp Karaoke Application");
-
-        try {
-            // --- UI Loading ---
-            // TODO: Replace placeholder with FXML loading for MainView.fxml
-
-            // Placeholder UI:
-            BorderPane root = new BorderPane();
-            Label welcomeLabel = new Label("Welcome to TuneUp! (UI Placeholder - Load MainView.fxml here)");
-            root.setCenter(welcomeLabel);
-            Scene scene = new Scene(root, 900, 700); // Example starting size
-            // --- End Placeholder UI ---
-
-
-            /* --- Example FXML Loading (replace placeholder later) ---
-            // Ensure the FXML file path is correct relative to the classpath root or resources folder
-            URL fxmlUrl = getClass().getResource("/view/MainView.fxml"); // Assumes 'view' is in resources or classpath root
-            if (fxmlUrl == null) {
-                throw new IOException("Cannot find FXML file. Make sure /view/MainView.fxml exists and is correctly placed.");
-            }
-            FXMLLoader loader = new FXMLLoader(fxmlUrl);
-            BorderPane root = loader.load(); // Load the FXML root element
-
-            // Access controller if needed (after loader.load()):
-            // controller.MainController controller = loader.getController(); // Assuming controller class is MainController
-            // Pass services or perform setup on the controller
-            // controller.setPlayerService(playerServiceInstance);
-            // controller.setLyricsService(lyricsServiceInstance);
-            // controller.initializeUI(); // Or similar setup method
-
-            Scene scene = new Scene(root);
-            --- End Example FXML Loading --- */
-
-
-            // Set the scene on the stage
-            primaryStage.setScene(scene);
-
-            // Add any global CSS if needed (ensure path is correct)
-            // URL cssUrl = getClass().getResource("/css/style.css");
-            // if (cssUrl != null) {
-            //    scene.getStylesheets().add(cssUrl.toExternalForm());
-            // } else {
-            //    System.err.println("Warning: Global CSS file not found.");
-            // }
-
-            // Configure stage closing behavior (optional but good practice)
-            primaryStage.setOnCloseRequest(event -> {
-                System.out.println("Close request received. Shutting down...");
-                // Perform any necessary cleanup before closing
-                // e.g., playerService.dispose();
-            });
-
-            // Show the stage
-            primaryStage.show();
-
-        } catch (Exception e) { // Catch potential exceptions during UI loading (e.g., FXML errors)
-            System.err.println("Fatal error setting up UI: " + e.getMessage());
-            e.printStackTrace();
-            showErrorDialog("UI Error", "Failed to Load User Interface",
-                            "An unexpected error occurred while loading the main view:\n" + e.getMessage());
-            System.exit(1); // Exit on critical UI failure
+        if (!this.initializationOk) {
+            showErrorDialog("Initialization Error", "Application Initialization Failed",
+                            "Could not initialize backend components. Exiting.");
+            System.exit(1);
+            return;
         }
-    }
+
+       primaryStage.setTitle("TuneUp Karaoke Application");
+
+       try {
+           // --- Load MainView.fxml ---
+           // Ensure the path is correct (relative to classpath root/resources folder)
+           URL fxmlUrl = getClass().getResource("/view/MainView.fxml");
+           if (fxmlUrl == null) {
+               throw new IOException("Cannot find FXML: /view/MainView.fxml. Check classpath and file location.");
+           }
+
+           FXMLLoader loader = new FXMLLoader(fxmlUrl);
+           Parent root = loader.load(); // Load the root element (e.g., BorderPane)
+
+           // --- Get Controller and Inject Services ---
+           MainController controller = loader.getController(); // Get the controller instance created by FXMLLoader
+           if (controller != null) {
+               // Use the setter methods to inject the service instances
+               controller.setPlayerService(this.playerService);
+               controller.setLyricsService(this.lyricsService);
+
+               // Optionally call a method on controller for service-dependent setup if needed now
+               // controller.setupServiceDependentBindings(); // Example custom method
+               // controller.loadInitialLibraryData(); // Example
+           } else {
+                throw new IOException("FXMLLoader failed to create the controller instance for MainView.fxml.");
+           }
+
+           Scene scene = new Scene(root, 1000, 700); // Use Parent 'root', set size
+
+           primaryStage.setScene(scene);
+           primaryStage.setOnCloseRequest(event -> System.out.println("Shutting down..."));
+           primaryStage.show();
+
+       } catch (IOException e) { // Catch FXML loading errors
+           System.err.println("Fatal error loading UI from FXML: " + e.getMessage());
+           e.printStackTrace();
+           showErrorDialog("UI Load Error", "Failed to Load User Interface",
+                           "Could not load the main view (MainView.fxml):\n" + e.getMessage());
+           System.exit(1);
+       } catch (Exception e) { // Catch other potential UI setup errors
+           System.err.println("Fatal error setting up UI: " + e.getMessage());
+           e.printStackTrace();
+           showErrorDialog("UI Error", "Failed to Setup User Interface",
+                           "An unexpected error occurred during UI setup:\n" + e.getMessage());
+           System.exit(1);
+       }
+   }
 
      /**
      * Optional: Override stop() method to perform cleanup on application exit.
