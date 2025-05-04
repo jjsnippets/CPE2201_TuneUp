@@ -11,6 +11,7 @@ import java.net.URL;                  // For FXML loading path
 
 import service.PlayerService;       // Import service
 import service.LyricsService;       // Import service
+import service.QueueService;        // Import service
 import controller.MainController;   // Import controller
 
 // Imports from previous version for initialization/testing
@@ -23,8 +24,11 @@ import util.DevelopmentTester;
  */
 public class TuneUpApplication extends javafx.application.Application {
 
-    private PlayerService playerService;        // Hold service instance
-    private LyricsService lyricsService;        // Hold service instance
+    // Hold service instances
+    private PlayerService playerService;        
+    private LyricsService lyricsService;
+    private QueueService queueService;
+
     private boolean initializationOk = false;   // Flag to track successful initialization
 
     /**
@@ -43,6 +47,7 @@ public class TuneUpApplication extends javafx.application.Application {
         // They don't depend on UI thread
         this.playerService = new PlayerService();
         this.lyricsService = new LyricsService();
+        this.queueService = new QueueService(); 
         System.out.println("Services instantiated.");
 
         // Initialize core components (DB, Schema, Population)
@@ -100,13 +105,15 @@ public class TuneUpApplication extends javafx.application.Application {
                // Use the setter methods to inject the service instances
                controller.setPlayerService(this.playerService);
                controller.setLyricsService(this.lyricsService);
+               controller.setQueueService(this.queueService);
 
                // Optionally call a method on controller for service-dependent setup if needed now
-               // controller.setupServiceDependentBindings(); // Example custom method
-               // controller.loadInitialLibraryData(); // Example
-           } else {
-                throw new IOException("FXMLLoader failed to create the controller instance for MainView.fxml.");
-           }
+            controller.initializeBindingsAndListeners(); // Example setup method name
+
+            } else {
+                 throw new IOException("FXMLLoader failed to create the controller instance.");
+            }
+
 
            Scene scene = new Scene(root, 1000, 700); // Use Parent 'root', set size
 
@@ -114,20 +121,15 @@ public class TuneUpApplication extends javafx.application.Application {
            primaryStage.setOnCloseRequest(event -> System.out.println("Shutting down..."));
            primaryStage.show();
 
-       } catch (IOException e) { // Catch FXML loading errors
-           System.err.println("Fatal error loading UI from FXML: " + e.getMessage());
-           e.printStackTrace();
-           showErrorDialog("UI Load Error", "Failed to Load User Interface",
-                           "Could not load the main view (MainView.fxml):\n" + e.getMessage());
-           System.exit(1);
-       } catch (Exception e) { // Catch other potential UI setup errors
-           System.err.println("Fatal error setting up UI: " + e.getMessage());
-           e.printStackTrace();
-           showErrorDialog("UI Error", "Failed to Setup User Interface",
-                           "An unexpected error occurred during UI setup:\n" + e.getMessage());
-           System.exit(1);
-       }
-   }
+        } catch (IOException e) { // Handle FXML loading errors
+            handleFatalError("UI Load Error", "Failed to Load User Interface",
+                             "Could not load the main view (MainView.fxml):\n" + e.getMessage(), e);
+        } catch (Exception e) { // Handle any other unexpected errors during UI setup
+            handleFatalError("UI Setup Error", "Failed to Setup User Interface",
+                             "An unexpected error occurred during UI setup:\n" + e.getMessage(), e);
+        }
+    }
+
 
      /**
      * Optional: Override stop() method to perform cleanup on application exit.
@@ -171,4 +173,17 @@ public class TuneUpApplication extends javafx.application.Application {
         alert.getDialogPane().setPrefSize(480, 320);
         alert.showAndWait();
     }
+
+    // Combined error handling
+    private void handleFatalError(String title, String header, String content, Exception e) {
+            System.err.println(title + ": " + content);
+            if (e != null) {
+               e.printStackTrace();
+            }
+            // Ensure dialog runs on FX thread if this could somehow be called from background
+            // Platform.runLater(() -> showErrorDialog(title, header, content));
+            showErrorDialog(title, header, content); // Assuming start() calls this on FX thread
+            System.exit(1);
+       }
+   
 }

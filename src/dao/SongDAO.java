@@ -12,6 +12,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors; // For joining conditions
 
+import java.util.Set;      // Import Set
+import java.util.TreeSet;  // Import TreeSet for sorted order
+
 /**
  * Data Access Object (DAO) for interacting with the 'songs' table in the database.
  * Provides methods for retrieving song data based on various criteria, supporting
@@ -25,6 +28,31 @@ public class SongDAO {
 
     // Private constructor to prevent instantiation of this utility class with static methods.
     private SongDAO() {}
+
+        /**
+     * Retrieves a sorted set of all distinct genres present in the songs table.
+     * Ignores null or empty genre values.
+     *
+     * @return A Set of unique genre strings, sorted alphabetically. Returns an empty set on error.
+     */
+    public static Set<String> getDistinctGenres() {
+        // Use TreeSet for automatic sorting and uniqueness
+        Set<String> genres = new TreeSet<>();
+        String sql = "SELECT DISTINCT genre FROM songs WHERE genre IS NOT NULL AND genre != '' ORDER BY genre ASC";
+
+        try (Connection conn = DatabaseUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
+
+            while (rs.next()) {
+                genres.add(rs.getString("genre"));
+            }
+        } catch (SQLException e) {
+            System.err.println("Error fetching distinct genres: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return genres;
+    }
 
     /**
      * Retrieves all songs from the database, ordered by artist and then title.
