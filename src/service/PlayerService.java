@@ -1,171 +1,102 @@
 package service; // Define the package for service classes
 
+import javafx.application.Platform; // Keep import for comments/potential future use
 import javafx.beans.property.ReadOnlyLongProperty;
 import javafx.beans.property.ReadOnlyLongWrapper;
 import javafx.beans.property.ReadOnlyObjectProperty;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
+import javafx.scene.media.MediaException; // Import for specific errors
 import javafx.util.Duration;
 import model.Song; // Import the Song model
 
-import java.io.File; // Import File class
+import java.io.File;
+import java.io.IOException;
+import java.net.MalformedURLException; // Import for URI errors
 
 /**
  * Service class that encapsulates JavaFX MediaPlayer functionality.
  * Manages loading audio (FR1.1), playback controls (FR1.3, FR1.4), seeking (FR1.7),
  * and exposes observable properties for playback state and time (FR1.6).
  * Abstracts low-level JavaFX media handling from controllers.
+ * Refactored for improved error handling structure.
  */
 public class PlayerService {
 
     private MediaPlayer mediaPlayer;
-    private Song currentSong; // Keep track of the currently loaded song
+    private Song currentSong;
 
     // --- Observable Properties ---
-
-    // Wraps the MediaPlayer status, providing a read-only property for observers.
     private final ReadOnlyObjectWrapper<MediaPlayer.Status> statusWrapper =
             new ReadOnlyObjectWrapper<>(this, "status", MediaPlayer.Status.UNKNOWN);
-    public final ReadOnlyObjectProperty<MediaPlayer.Status> statusProperty() {
-        return statusWrapper.getReadOnlyProperty();
-    }
-    public final MediaPlayer.Status getStatus() {
-        return statusWrapper.get();
-    }
-
-    // Wraps the current playback time, providing a read-only property (in milliseconds).
     private final ReadOnlyLongWrapper currentTimeMillisWrapper =
             new ReadOnlyLongWrapper(this, "currentTimeMillis", 0L);
-    public final ReadOnlyLongProperty currentTimeProperty() {
-        return currentTimeMillisWrapper.getReadOnlyProperty();
-    }
-    public final long getCurrentTimeMillis() {
-        return currentTimeMillisWrapper.get();
-    }
-
-    // Wraps the total duration of the media, providing a read-only property (in milliseconds).
     private final ReadOnlyLongWrapper totalDurationMillisWrapper =
             new ReadOnlyLongWrapper(this, "totalDurationMillis", 0L);
-    public final ReadOnlyLongProperty totalDurationProperty() {
-        return totalDurationMillisWrapper.getReadOnlyProperty();
-    }
-    public final long getTotalDurationMillis() {
-        return totalDurationMillisWrapper.get();
-    }
+
+    // Public read-only property accessors
+    public final ReadOnlyObjectProperty<MediaPlayer.Status> statusProperty() { return statusWrapper.getReadOnlyProperty(); }
+    public final MediaPlayer.Status getStatus() { return statusWrapper.get(); }
+    public final ReadOnlyLongProperty currentTimeProperty() { return currentTimeMillisWrapper.getReadOnlyProperty(); }
+    public final long getCurrentTimeMillis() { return currentTimeMillisWrapper.get(); }
+    public final ReadOnlyLongProperty totalDurationProperty() { return totalDurationMillisWrapper.getReadOnlyProperty(); }
+    public final long getTotalDurationMillis() { return totalDurationMillisWrapper.get(); }
+
 
     // --- Public Service Methods ---
 
     /**
      * Loads the audio file from the given Song's audioFilePath.
      * Disposes of any existing MediaPlayer before creating a new one.
-     * Updates status, current time, and total duration properties.
-     * Implements FR1.1.
      *
-     * @param song The Song object to load. Can be null to unload.
+     * @param song The Song object to load. Can be null to unload/reset.
      */
     public void loadSong(Song song) {
-        disposePlayer(); // Dispose previous player if exists
-        this.currentSong = song; // Update current song reference
+        disposePlayer(); // Clean up previous player first
 
         if (song == null || song.getAudioFilePath() == null || song.getAudioFilePath().isBlank()) {
-            // Reset properties if song is null or has no valid path
-            statusWrapper.set(MediaPlayer.Status.UNKNOWN);
-            currentTimeMillisWrapper.set(0L);
-            totalDurationMillisWrapper.set(0L);
-            System.err.println("PlayerService: Cannot load null song or song with invalid audio path.");
-            return;
+            System.err.println("PlayerService: Cannot load null song or song with invalid audio path. Resetting player.");
+            // Reset state fully if input is invalid (already handled by disposePlayer)
+            return; // Nothing further to load
         }
 
+        // Update current song reference *after* successful loading starts
+        this.currentSong = song;
+        System.out.println("PlayerService: Attempting to load song - " + song.getTitle());
+
         try {
-            // Create Media object from file path
+            // --- Media Creation ---
             File audioFile = new File(song.getAudioFilePath());
-            if (!audioFile.exists()) {
-                throw new IllegalArgumentException("Audio file not found: " + song.getAudioFilePath());
+            if (!audioFile.exists() || !audioFile.canRead()) {
+                throw new IOException("Audio file not found or cannot be read: " + song.getAudioFilePath());
             }
-            // Convert file path to a valid URI string for Media constructor
             String mediaUriString = audioFile.toURI().toString();
-            Media media = new Media(mediaUriString);
+            Media media = new Media(mediaUriString); // Can throw MediaException
 
-            // Create new MediaPlayer
-            mediaPlayer = new MediaPlayer(media);
+            // --- MediaPlayer Creation ---
+            mediaPlayer = new MediaPlayer(media); // Can throw MediaException
 
-            // --- Setup Listeners to update Service Properties ---
+            // --- Setup Listeners ---
+            addMediaPlayerListeners();
 
-            // Update status property when MediaPlayer status changes
-            mediaPlayer.statusProperty().addListener((obs, oldStatus, newStatus) -> {
-                // Ensure updates run on the JavaFX Application Thread if modifying UI directly elsewhere
-                // Platform.runLater(() -> statusWrapper.set(newStatus)); // Usually safe as listeners often called on FX thread
-                 statusWrapper.set(newStatus);
-            });
-
-            // Update currentTimeMillis property when MediaPlayer time changes
-            mediaPlayer.currentTimeProperty().addListener((obs, oldTime, newTime) -> {
-                if (newTime != null) {
-                    // Platform.runLater(() -> currentTimeMillisWrapper.set((long) newTime.toMillis()));
-                     currentTimeMillisWrapper.set((long) newTime.toMillis());
-                }
-            });
-
-            // Update totalDurationMillis property once the media is ready
-            mediaPlayer.setOnReady(() -> {
-                Duration total = mediaPlayer.getTotalDuration();
-                if (total != null && !total.isUnknown() && !total.isIndefinite()) {
-                    // Platform.runLater(() -> totalDurationMillisWrapper.set((long) total.toMillis()));
-                     totalDurationMillisWrapper.set((long) total.toMillis());
-                } else {
-                     totalDurationMillisWrapper.set(0L); // Indicate unknown/invalid duration
-                }
-                // Can set status to READY here explicitly if needed, but listener should handle it
-                // statusWrapper.set(MediaPlayer.Status.READY);
-            });
-
-             // Handle end of media event (e.g., for auto-play next song in queue)
-             mediaPlayer.setOnEndOfMedia(() -> {
-                 // Reset time to 0, keep status as STOPPED (or READY depending on desired behavior)
-                 // Could potentially fire an event here for the controller to handle 'next song' logic
-                 stop(); // Stop sets time to 0 typically
-                 statusWrapper.set(MediaPlayer.Status.STOPPED); // Or READY?
-                 System.out.println("PlayerService: End of media reached for " + currentSong.getTitle());
-             });
-
-            // Handle player errors
-            mediaPlayer.setOnError(() -> {
-                System.err.println("MediaPlayer Error: " + mediaPlayer.getError());
-                statusWrapper.set(MediaPlayer.Status.HALTED);
-                currentTimeMillisWrapper.set(0L);
-                // Optionally try to dispose and nullify mediaPlayer on error
-                // disposePlayer();
-            });
-
-            // Initial state after creation (will transition to READY soon)
-            statusWrapper.set(mediaPlayer.getStatus()); // Set initial status
+            // --- Set Initial State ---
+            // Status is initially derived from the new player's status
+            statusWrapper.set(mediaPlayer.getStatus());
             currentTimeMillisWrapper.set(0L);
-            totalDurationMillisWrapper.set(0L); // Duration unknown until READY
+            totalDurationMillisWrapper.set(0L); // Will be updated onReady
 
-            System.out.println("PlayerService: Successfully loaded song - " + song.getTitle());
-
-        } catch (IllegalArgumentException | UnsupportedOperationException e) {
-            // Catch specific errors related to path/URI or media format
-            System.err.println("PlayerService Error loading media '" + song.getAudioFilePath() + "': " + e.getMessage());
-            disposePlayer(); // Ensure cleanup on error
-            statusWrapper.set(MediaPlayer.Status.HALTED);
-            currentTimeMillisWrapper.set(0L);
-            totalDurationMillisWrapper.set(0L);
+        } catch (IOException | IllegalArgumentException | MediaException | SecurityException e) {
+            // Catch specific, potentially recoverable loading errors
+            handleLoadError("Error loading media", song.getAudioFilePath(), e);
         } catch (Exception e) {
-            // Catch any other unexpected errors
-            System.err.println("PlayerService Unexpected error loading media: " + e.getMessage());
-            e.printStackTrace();
-            disposePlayer();
-            statusWrapper.set(MediaPlayer.Status.HALTED);
-            currentTimeMillisWrapper.set(0L);
-            totalDurationMillisWrapper.set(0L);
+            // Catch unexpected errors during loading
+            handleLoadError("Unexpected error loading media", song.getAudioFilePath(), e);
         }
     }
 
     /**
      * Starts or resumes playback of the currently loaded song.
-     * Implements FR1.2 (implied by Play).
      */
     public void play() {
         if (mediaPlayer != null && (getStatus() == MediaPlayer.Status.READY || getStatus() == MediaPlayer.Status.PAUSED || getStatus() == MediaPlayer.Status.STOPPED)) {
@@ -178,10 +109,7 @@ public class PlayerService {
         }
     }
 
-    /**
-     * Pauses the currently playing song.
-     * Implements FR1.3.
-     */
+    /** Pauses the currently playing song. */
     public void pause() {
         if (mediaPlayer != null && getStatus() == MediaPlayer.Status.PLAYING) {
              System.out.println("PlayerService: Pausing " + (currentSong != null ? currentSong.getTitle() : "media"));
@@ -189,40 +117,30 @@ public class PlayerService {
         }
     }
 
-    /**
-     * Stops playback and typically resets the playback position to the beginning.
-     * Implements FR1.4.
-     */
+    /** Stops playback and resets the playback position to the beginning. */
     public void stop() {
         if (mediaPlayer != null) {
              System.out.println("PlayerService: Stopping " + (currentSong != null ? currentSong.getTitle() : "media"));
             mediaPlayer.stop();
-            // Note: stop() usually resets currentTimeProperty automatically.
-            // If not observed reliably, manually set: currentTimeMillisWrapper.set(0L);
+            // stop() usually resets time, but confirm with listener or manual reset if needed
+            // currentTimeMillisWrapper.set(0L); // Listener typically handles this via status change
         }
     }
 
-    /**
-     * Seeks to the specified position in the media.
-     * Implements FR1.7.
-     *
-     * @param millis The position to seek to, in milliseconds.
-     */
+    /** Seeks to the specified position in the media. */
     public void seek(long millis) {
         if (mediaPlayer != null && (getStatus() == MediaPlayer.Status.PLAYING || getStatus() == MediaPlayer.Status.PAUSED || getStatus() == MediaPlayer.Status.READY)) {
-             if (millis < 0) millis = 0; // Ensure non-negative seek time
+             millis = Math.max(0, millis); // Ensure non-negative
 
-             // Avoid seeking beyond duration if possible, though MediaPlayer might handle it
              long total = getTotalDurationMillis();
              if (total > 0 && millis > total) {
-                 millis = total;
+                 millis = total; // Cap at duration
              }
 
             System.out.println("PlayerService: Seeking to " + millis + "ms");
             mediaPlayer.seek(Duration.millis(millis));
-            // Manually update wrapper if listener isn't fast enough or seeking from STOPPED state
+            // Manually update wrapper if listener isn't fast enough or seeking from non-playing state
              if (getStatus() != MediaPlayer.Status.PLAYING && getStatus() != MediaPlayer.Status.PAUSED) {
-                 // If seeking from READY or STOPPED, the listener might not fire immediately
                  currentTimeMillisWrapper.set(millis);
              }
         } else if (mediaPlayer != null) {
@@ -230,38 +148,117 @@ public class PlayerService {
         }
     }
 
-    /**
-     * Gets the currently loaded Song object.
-     * @return The current Song, or null if none is loaded.
-     */
+    /** Gets the currently loaded Song object. */
     public Song getCurrentSong() {
         return currentSong;
     }
 
-    /**
-     * Disposes the internal MediaPlayer instance, releasing system resources.
-     * Should be called when the service is no longer needed (e.g., application shutdown).
-     */
+    /** Disposes the internal MediaPlayer instance, releasing resources. */
     public void dispose() {
         disposePlayer();
-        System.out.println("PlayerService: Disposed.");
+        System.out.println("PlayerService: Service disposed.");
+    }
+
+
+    // --- Private Helper Methods ---
+
+    /**
+     * Sets up all necessary listeners on the current mediaPlayer instance.
+     * Precondition: mediaPlayer must not be null.
+     */
+    private void addMediaPlayerListeners() {
+        // Status listener -> update statusWrapper
+        mediaPlayer.statusProperty().addListener((obs, oldStatus, newStatus) -> {
+            // Updates usually happen on FX thread, direct update often okay.
+            // Platform.runLater(() -> statusWrapper.set(newStatus));
+            statusWrapper.set(newStatus);
+        });
+
+        // Time listener -> update currentTimeMillisWrapper
+        mediaPlayer.currentTimeProperty().addListener((obs, oldTime, newTime) -> {
+            if (newTime != null) {
+                // Platform.runLater(() -> currentTimeMillisWrapper.set((long) newTime.toMillis()));
+                currentTimeMillisWrapper.set((long) newTime.toMillis());
+            }
+        });
+
+        // Ready handler -> update totalDurationMillisWrapper
+        mediaPlayer.setOnReady(() -> {
+            Duration total = mediaPlayer.getTotalDuration();
+            long totalMillis = 0L;
+            if (total != null && !total.isUnknown() && !total.isIndefinite()) {
+                totalMillis = (long) total.toMillis();
+            }
+            // Platform.runLater(() -> totalDurationMillisWrapper.set(totalMillis));
+            totalDurationMillisWrapper.set(totalMillis);
+            // Status should transition to READY via its own listener.
+        });
+
+        // End of media handler -> stop player, update status
+        mediaPlayer.setOnEndOfMedia(() -> {
+            System.out.println("PlayerService: End of media reached for " + (currentSong != null ? currentSong.getTitle() : "media"));
+            // Stop resets time and status to STOPPED/READY depending on implementation
+            mediaPlayer.stop(); // Call internal player stop first
+            // Listener on statusProperty should handle setting wrapper to STOPPED/READY
+        });
+
+        // Error handler -> log and update state
+        mediaPlayer.setOnError(() -> {
+             // Use the centralized error handler
+             MediaException error = mediaPlayer.getError();
+             handleLoadError("MediaPlayer internal error", (currentSong != null ? currentSong.getAudioFilePath() : "N/A"), error);
+        });
     }
 
     /**
-     * Private helper to dispose of the media player safely.
+     * Handles errors occurring during media loading or playback.
+     * Logs the error, disposes the player, and resets state wrappers.
+     *
+     * @param message A descriptive message prefix.
+     * @param filePath The file path associated with the error (if known).
+     * @param throwable The exception/error that occurred (can be null).
+     */
+    private void handleLoadError(String message, String filePath, Throwable throwable) {
+        System.err.println("PlayerService Error: " + message + " [" + filePath + "]");
+        if (throwable != null) {
+             System.err.println(" -> Cause: " + throwable.getMessage());
+             // Only print stack trace for unexpected exceptions, not common ones like file not found
+             if (!(throwable instanceof IOException || throwable instanceof MediaException || throwable instanceof SecurityException)) {
+                 throwable.printStackTrace();
+             }
+        }
+
+        disposePlayer(); // Clean up potentially corrupted player
+
+        // Reset observable properties to indicate error/stopped state
+        statusWrapper.set(MediaPlayer.Status.HALTED);
+        currentTimeMillisWrapper.set(0L);
+        totalDurationMillisWrapper.set(0L);
+    }
+
+    /**
+     * Safely stops and disposes the current mediaPlayer instance, resetting state.
      */
     private void disposePlayer() {
         if (mediaPlayer != null) {
             try {
-                mediaPlayer.stop(); // Stop playback before disposing
+                mediaPlayer.stop(); // Attempt to stop first
+            } catch (Exception e) {
+                 System.err.println("PlayerService: Error stopping media player during disposal: " + e.getMessage());
+            }
+            try {
                 mediaPlayer.dispose(); // Release resources
                 System.out.println("PlayerService: Disposed existing MediaPlayer.");
             } catch (Exception e) {
-                System.err.println("PlayerService: Error during MediaPlayer disposal: " + e.getMessage());
+                System.err.println("PlayerService: Error disposing media player: " + e.getMessage());
             } finally {
-                mediaPlayer = null; // Ensure reference is cleared
-                currentSong = null; // Clear current song reference
+                mediaPlayer = null; // Clear reference
             }
         }
+        // Always reset state when player is disposed (or wasn't there)
+        currentSong = null;
+        if (getStatus() != MediaPlayer.Status.UNKNOWN) statusWrapper.set(MediaPlayer.Status.UNKNOWN); // Avoid needless updates
+        if (getCurrentTimeMillis() != 0L) currentTimeMillisWrapper.set(0L);
+        if (getTotalDurationMillis() != 0L) totalDurationMillisWrapper.set(0L);
     }
 }

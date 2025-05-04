@@ -3,18 +3,19 @@
 import javafx.application.Application;
 import javafx.stage.Stage;
 import javafx.scene.Scene;
-import javafx.scene.Parent;           // For loaded root
-import javafx.scene.control.Alert;    // For showing errors
-import javafx.fxml.FXMLLoader;        // For loading FXML later
-import java.io.IOException;           // For FXML loading errors
-import java.net.URL;                  // For FXML loading path
+import javafx.scene.Parent; // Use Parent for loaded root
+import javafx.scene.control.Alert;
+import javafx.fxml.FXMLLoader;
+import java.io.IOException;
+import java.net.URL;
 
-import service.PlayerService;       // Import service
-import service.LyricsService;       // Import service
-import service.QueueService;        // Import service
-import controller.MainController;   // Import controller
+// Imports for services and controller
+import service.PlayerService;
+import service.LyricsService;
+import service.QueueService;
+import controller.MainController;
 
-// Imports from previous version for initialization/testing
+// Imports for initialization/testing
 import util.ApplicationInitializer;
 import util.DevelopmentTester;
 
@@ -22,32 +23,33 @@ import util.DevelopmentTester;
  * Main application class for TuneUp. Initializes the backend and launches the JavaFX UI.
  * Extends javafx.application.Application.
  */
-public class TuneUpApplication extends javafx.application.Application {
+public class TuneUpApplication extends Application {
 
-    // Hold service instances
-    private PlayerService playerService;        
+    // --- Constants ---
+    // Flag to easily enable/disable development tests (e.g., set via system property or config later)
+    private static final boolean RUN_DEVELOPMENT_TESTS = true; // Set to false for production
+
+    // --- Instance Variables ---
+    private PlayerService playerService;
     private LyricsService lyricsService;
     private QueueService queueService;
-
-    private boolean initializationOk = false;   // Flag to track successful initialization
+    private boolean initializationOk = false; // Flag to track successful initialization
 
     /**
      * Initialization method called by JavaFX toolkit before start().
-     * Performs backend initialization (DB, Schema, Population) and optional testing.
-     * This runs on a separate thread, NOT the JavaFX Application Thread.
+     * Performs backend initialization and optional testing. Runs on a background thread.
      *
-     * @throws Exception if initialization fails critically (though we handle failures internally for now).
+     * @throws Exception Can be thrown by super.init() or if initialization is critical.
      */
     @Override
     public void init() throws Exception {
         super.init(); // Call superclass init is good practice
         System.out.println("TuneUp Application Initializing Backend...");
 
-        // Create service instances EARLY (before init completes is fine)
-        // They don't depend on UI thread
+        // Instantiate services (can be done early)
         this.playerService = new PlayerService();
         this.lyricsService = new LyricsService();
-        this.queueService = new QueueService(); 
+        this.queueService = new QueueService();
         System.out.println("Services instantiated.");
 
         // Initialize core components (DB, Schema, Population)
@@ -56,134 +58,142 @@ public class TuneUpApplication extends javafx.application.Application {
         if (this.initializationOk) {
             System.out.println("Core initialization successful (from init method).");
 
-            // --- Development Step: Run Tests ---
-            // This call should be removed or made conditional for a production build.
-             System.out.println("Running development tests (from init method)...");
-            DevelopmentTester.runAllDevelopmentTests();
+            // --- Development Step: Conditionally Run Tests ---
+            if (RUN_DEVELOPMENT_TESTS) {
+                System.out.println("Running development tests (from init method)...");
+                DevelopmentTester.runAllDevelopmentTests();
+                System.out.println("Finished development tests.");
+            }
             // --- End Development Step ---
+
         } else {
-            // Log critical failure; the start() method will handle showing an error UI
+            // Log critical failure; start() will show an error UI
             System.err.println("Application backend failed to initialize correctly (from init method). UI might not function.");
-            // We don't throw an exception here to allow start() to show a user-friendly error.
         }
     }
 
     /**
      * The main entry point for the JavaFX application UI.
-     * This method is called after init() completes and runs on the JavaFX Application Thread.
+     * Runs on the JavaFX Application Thread.
      *
-     * @param primaryStage The primary stage for this application, onto which
-     *                     the application scene can be set.
+     * @param primaryStage The primary stage for this application.
      */
     @Override
     public void start(Stage primaryStage) {
-        System.out.println("Starting JavaFX UI...");
+         System.out.println("Starting JavaFX UI...");
 
-        if (!this.initializationOk) {
-            showErrorDialog("Initialization Error", "Application Initialization Failed",
-                            "Could not initialize backend components. Exiting.");
-            System.exit(1);
-            return;
-        }
+         // Check if backend initialization failed
+         if (!this.initializationOk) {
+             showErrorDialog("Initialization Error", "Application Initialization Failed",
+                             "Could not initialize backend components. Exiting.");
+             // Don't call Platform.exit() here, just let start() finish gracefully after dialog.
+             // System.exit(1) is okay if Platform isn't fully running.
+             System.exit(1); // Exit if init failed critically
+             return;
+         }
 
-       primaryStage.setTitle("TuneUp Karaoke Application");
+        primaryStage.setTitle("TuneUp Karaoke Application");
 
-       try {
-           // --- Load MainView.fxml ---
-           // Ensure the path is correct (relative to classpath root/resources folder)
-           URL fxmlUrl = getClass().getResource("/view/MainView.fxml");
-           if (fxmlUrl == null) {
-               throw new IOException("Cannot find FXML: /view/MainView.fxml. Check classpath and file location.");
-           }
-
-           FXMLLoader loader = new FXMLLoader(fxmlUrl);
-           Parent root = loader.load(); // Load the root element (e.g., BorderPane)
-
-           // --- Get Controller and Inject Services ---
-           MainController controller = loader.getController(); // Get the controller instance created by FXMLLoader
-           if (controller != null) {
-               // Use the setter methods to inject the service instances
-               controller.setPlayerService(this.playerService);
-               controller.setLyricsService(this.lyricsService);
-               controller.setQueueService(this.queueService);
-
-               // Optionally call a method on controller for service-dependent setup if needed now
-            controller.initializeBindingsAndListeners(); // Example setup method name
-
-            } else {
-                 throw new IOException("FXMLLoader failed to create the controller instance.");
+        try {
+            // --- Load MainView.fxml ---
+            URL fxmlUrl = getClass().getResource("/view/MainView.fxml");
+            if (fxmlUrl == null) {
+                throw new IOException("Cannot find FXML: /view/MainView.fxml. Check classpath and file location.");
             }
 
+            FXMLLoader loader = new FXMLLoader(fxmlUrl);
+            Parent root = loader.load();
 
-           Scene scene = new Scene(root, 1000, 700); // Use Parent 'root', set size
+            // --- Get Controller and Inject Services ---
+            MainController controller = loader.getController();
+            if (controller != null) {
+                controller.setPlayerService(this.playerService);
+                controller.setLyricsService(this.lyricsService);
+                controller.setQueueService(this.queueService);
+                // Call method to setup bindings/listeners *after* all services are injected
+                controller.initializeBindingsAndListeners();
+            } else {
+                 throw new IOException("FXMLLoader failed to create the controller instance for MainView.fxml.");
+            }
 
-           primaryStage.setScene(scene);
-           primaryStage.setOnCloseRequest(event -> System.out.println("Shutting down..."));
-           primaryStage.show();
+            // --- Setup Scene and Stage ---
+            Scene scene = new Scene(root, 1000, 700); // Initial size
 
-        } catch (IOException e) { // Handle FXML loading errors
+            // --- Set CSS Stylesheet ---
+            URL cssUrl = getClass().getResource("/view/style.css"); // Make sure path is correct
+            if (cssUrl != null) {
+                scene.getStylesheets().add(cssUrl.toExternalForm());
+                System.out.println("Loaded CSS: " + cssUrl.toExternalForm());
+            } else {
+                System.err.println("Warning: CSS file not found at /view/style.css");
+            }
+            
+
+            primaryStage.setScene(scene);
+            primaryStage.setOnCloseRequest(event -> System.out.println("Main window close request received...")); // Log closing intent
+            primaryStage.show();
+
+        } catch (IOException e) { // Catch FXML loading errors
             handleFatalError("UI Load Error", "Failed to Load User Interface",
                              "Could not load the main view (MainView.fxml):\n" + e.getMessage(), e);
-        } catch (Exception e) { // Handle any other unexpected errors during UI setup
+        } catch (Exception e) { // Catch other potential UI setup errors
             handleFatalError("UI Setup Error", "Failed to Setup User Interface",
                              "An unexpected error occurred during UI setup:\n" + e.getMessage(), e);
         }
     }
 
-
-     /**
-     * Optional: Override stop() method to perform cleanup on application exit.
-     * This method is called when the application is closed (e.g., closing the window).
+    /**
+     * Called when the application is stopping. Performs cleanup.
+     * Runs on the JavaFX Application Thread *after* the last window is closed.
      */
-     @Override
-     public void stop() throws Exception {
-         System.out.println("TuneUp Application Shutting Down (via stop method)...");
-         // TODO: Add cleanup code here (e.g., dispose services)
-         // Example: if (playerService != null) playerService.dispose();
-         super.stop(); // Call superclass stop
-     }
+    @Override
+    public void stop() throws Exception {
+        System.out.println("TuneUp Application Shutting Down (via stop method)...");
 
+        // Dispose services that need cleanup (like MediaPlayer)
+        if (playerService != null) {
+            try {
+                playerService.dispose();
+                System.out.println("PlayerService disposed.");
+            } catch (Exception e) {
+                System.err.println("Error disposing PlayerService: " + e.getMessage());
+                e.printStackTrace();
+            }
+        }
+        // Dispose other services if they implement a dispose() method
+
+        super.stop(); // Call superclass stop
+        System.out.println("Application stopped.");
+    }
 
     /**
      * The main method which launches the JavaFX application.
-     * The actual application logic starts in the init() and start() methods.
      *
      * @param args Command line arguments passed to the application.
      */
     public static void main(String[] args) {
-        // Launch the JavaFX application. This calls init() on a background thread,
-        // then calls start() on the JavaFX Application Thread.
-        TuneUpApplication.launch(args);
+        // Launch the JavaFX application lifecycle
+        launch(args);
     }
 
-    /**
-     * Helper method to show a simple error dialog.
-     * Should only be called from the JavaFX Application Thread.
-     *
-     * @param title Title of the dialog window.
-     * @param header Header text inside the dialog.
-     * @param content Detailed content message.
-     */
+    /** Handles fatal errors during startup by logging, showing a dialog, and exiting. */
+    private void handleFatalError(String title, String header, String content, Exception e) {
+         System.err.println(title + ": " + content);
+         if (e != null) {
+            e.printStackTrace();
+         }
+         // Assuming this is called from start() which is on FX thread
+         showErrorDialog(title, header, content);
+         System.exit(1); // Terminate on fatal startup error
+    }
+
+    /** Helper method to show a simple error dialog. Runs on FX thread. */
     private void showErrorDialog(String title, String header, String content) {
         Alert alert = new Alert(Alert.AlertType.ERROR);
         alert.setTitle(title);
         alert.setHeaderText(header);
         alert.setContentText(content);
-        // Increase dialog size if needed
         alert.getDialogPane().setPrefSize(480, 320);
         alert.showAndWait();
     }
-
-    // Combined error handling
-    private void handleFatalError(String title, String header, String content, Exception e) {
-            System.err.println(title + ": " + content);
-            if (e != null) {
-               e.printStackTrace();
-            }
-            // Ensure dialog runs on FX thread if this could somehow be called from background
-            // Platform.runLater(() -> showErrorDialog(title, header, content));
-            showErrorDialog(title, header, content); // Assuming start() calls this on FX thread
-            System.exit(1);
-       }
-   
 }
