@@ -31,7 +31,6 @@ public class MainController implements Initializable {
 
     // Right Pane (Queue/Lyrics)
     @FXML private TitledPane queueTitledPane;
-    @FXML private ToggleButton queueToggleButton;
     @FXML private Label queueSong1Label;
     @FXML private Label queueSong2Label;
     @FXML private Label queueSong3Label;
@@ -70,14 +69,6 @@ public class MainController implements Initializable {
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         System.out.println("MainController initialized.");
-
-        // Bind the queue toggle button's selected state to the TitledPane's expanded state
-        // This makes the button control the collapse/expand visually
-        if (queueToggleButton != null && queueTitledPane != null) {
-            queueToggleButton.selectedProperty().bindBidirectional(queueTitledPane.expandedProperty());
-        } else {
-            System.err.println("Warning: queueToggleButton or queueTitledPane not injected correctly.");
-        }
 
         // TODO: Add other initializations here:
         // - Configure TableView columns (setCellValueFactory)
