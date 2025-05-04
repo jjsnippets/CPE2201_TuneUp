@@ -140,6 +140,20 @@ public class LyricsService {
     }
 
     /**
+     * Clears the currently loaded lyrics and resets the display lines.
+     * Called when playback stops or the current song becomes null.
+     */
+    public void clearLyrics() {
+        if (this.currentSong != null || this.currentLyrics != null || !this.displayLinesWrapper.get().isEmpty()) {
+             System.out.println("LyricsService: Clearing current lyrics state.");
+             this.currentSong = null;
+             this.currentLyrics = null;
+             // Update the observable property to an empty list to clear the UI
+             this.displayLinesWrapper.set(Collections.emptyList());
+        }
+    }
+
+    /**
      * Safely gets a LyricLine from a list by index.
      * Returns null if the list is null or the index is out of bounds.
      *

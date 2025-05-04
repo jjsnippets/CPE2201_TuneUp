@@ -135,6 +135,26 @@
     -fx-background-radius: 5px;
 }
 
+/* Now Playing Bar */
+.now-playing-bar {
+    -fx-background-color: #E8EAF6; /* Light Indigo background */
+    -fx-padding: 5 10 5 10;
+    -fx-border-color: #C5CAE9;
+    -fx-border-width: 1 0 0 0; /* Top border */
+}
+
+.now-playing-label-title {
+    -fx-font-size: 0.9em;
+    -fx-font-weight: bold;
+    -fx-text-fill: #3F51B5; /* Indigo */
+}
+
+.now-playing-label-info {
+    -fx-font-size: 0.95em;
+    -fx-text-fill: #303F9F; /* Darker Indigo */
+    -fx-font-style: italic;
+}
+
 /* Dark Mode Theme (Example - can be toggled via code) */
 .dark-mode {
     -fx-base: #37474F; /* Dark grey base */
@@ -164,4 +184,18 @@
 .dark-mode .combo-box .arrow-button { -fx-background-color: #546E7A; }
 .dark-mode .slider .track { -fx-background-color: #546E7A; }
 .dark-mode .slider .thumb { -fx-background-color: #B0BEC5; }
+
+/* Dark Mode Now Playing Bar */
+.dark-mode .now-playing-bar {
+    -fx-background-color: #303F9F; /* Dark Indigo background */
+    -fx-border-color: #3F51B5;
+}
+
+.dark-mode .now-playing-label-title {
+    -fx-text-fill: #9FA8DA; /* Lighter Indigo */
+}
+
+.dark-mode .now-playing-label-info {
+    -fx-text-fill: #C5CAE9; /* Even Lighter Indigo */
+}
 
