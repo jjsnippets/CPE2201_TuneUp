@@ -6,16 +6,20 @@ import javafx.beans.binding.Bindings;
 import javafx.collections.FXCollections;
 import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
+import javafx.event.ActionEvent; // Import for ActionEvent
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.*; // Import all controls for convenience
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.VBox; // Keep VBox
 import javafx.scene.media.MediaPlayer;
+import javafx.stage.Stage; // Import for Stage (will be needed for fullscreen)
+
 
 // --- Model Imports ---
 import model.LyricLine;
 import model.Song;
+import model.SongLyrics; // Ensure SongLyrics is imported if LyricsService uses it directly
 
 // --- Service Imports ---
 import service.LyricsService;
@@ -40,7 +44,9 @@ import java.util.concurrent.TimeUnit;
  * Corresponds to SRS sections regarding UI interaction and coordination (e.g., FR1.x, FR2.x, FR3.x handling).
  */
 public class MainController implements Initializable {
+
     // --- FXML Injected Fields ---
+
     // Left Pane (Library/Search)
     @FXML private TextField searchTextField;
     @FXML private ComboBox<String> genreFilterComboBox;
@@ -55,8 +61,7 @@ public class MainController implements Initializable {
     @FXML private Label queueSong2Label;
     @FXML private Label queueSong3Label;
     @FXML private Label queueCountLabel;
-
-    @FXML private VBox lyricsContainer;
+    @FXML private VBox lyricsContainer; // VBox that holds the lyric labels
     @FXML private Label previousLyricLabel;
     @FXML private Label currentLyricLabel;
     @FXML private Label next1LyricLabel;
@@ -74,34 +79,45 @@ public class MainController implements Initializable {
     @FXML private ToggleButton fullscreenToggleButton;
     @FXML private ToggleButton themeToggleButton;
 
+    // Lyric Offset Controls (NEWLY ADDED FXML FIELDS)
+    @FXML private Button increaseOffsetButton;
+    @FXML private Label lyricOffsetLabel;
+    @FXML private Button decreaseOffsetButton;
+
+
     // --- Service Dependencies ---
     private PlayerService playerService;
     private LyricsService lyricsService;
     private QueueService queueService;
+    private Stage primaryStage; // To be injected for fullscreen
+
 
     // --- State ---
     private Song currentlySelectedSong = null; // Keep track of the selected song from the TableView
     private boolean isUserSeeking = false; // Flag to prevent time updates while user drags slider
+    // private int currentLyricOffsetMillis = 0; // State for user-adjusted lyric offset (will be added later)
+
 
     // --- Constants ---
     private static final String ALL_GENRES = "All Genres";
 
     // Listener for queue changes
-    private final ListChangeListener<Song> queueChangeListener = _change ->
+    private final ListChangeListener<Song> queueChangeListener = change ->
             Platform.runLater(this::updateQueueDisplay); // Ensure UI update on FX thread
 
-    // --- Initialization ---
 
+    // --- Initialization ---
     /**
      * Called by FXMLLoader after FXML fields are injected.
      * Sets up UI components that don't depend on injected services.
      *
-     * @param location  The location used to resolve relative paths for the root object, or null if not known.
+     * @param location The location used to resolve relative paths for the root object, or null if not known.
      * @param resources The resources used to localize the root object, or null if not known.
      */
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         System.out.println("MainController initialized.");
+
         setupTableViewColumns();
         addSearchAndFilterListeners();
         addTableViewSelectionListener();
@@ -109,9 +125,14 @@ public class MainController implements Initializable {
 
         updateNowPlayingDisplay(null); // Initialize Now Playing labels
         playbackSlider.setDisable(true); // Initially disable slider until a song is loaded
+
         if (stopButton != null) {
             // Sets the text for the stop button, which implies clearing all playback and queue.
             stopButton.setText("Stop All");
+        }
+        // Initialize lyric offset label (will be refined when offset logic is added)
+        if (lyricOffsetLabel != null) {
+            lyricOffsetLabel.setText("0 ms");
         }
     }
 
@@ -142,12 +163,10 @@ public class MainController implements Initializable {
     private void addTableViewSelectionListener() {
         TableView.TableViewSelectionModel<Song> selectionModel = songTableView.getSelectionModel();
         selectionModel.setSelectionMode(SelectionMode.SINGLE); // Ensure single selection
-
         selectionModel.selectedItemProperty().addListener((_observable, _oldSelection, newSelection) -> {
             this.currentlySelectedSong = newSelection;
             boolean songIsSelected = (newSelection != null);
             System.out.println(songIsSelected ? "Song selected: " + newSelection : "Song selection cleared.");
-
             addToQueueButton.setDisable(!songIsSelected); // Enable/disable Add button based on selection
 
             // Update Play button state ONLY if player is idle (not playing/paused)
@@ -197,7 +216,16 @@ public class MainController implements Initializable {
         });
     }
 
+
     // --- Service Injection & Post-Injection Setup ---
+
+    /**
+     * Injects the primary stage for operations like fullscreen toggle.
+     * @param stage The primary application stage.
+     */
+    public void setPrimaryStage(Stage stage) {
+        this.primaryStage = stage;
+    }
 
     public void setPlayerService(PlayerService playerService) {
         this.playerService = playerService;
@@ -227,6 +255,7 @@ public class MainController implements Initializable {
      */
     public void initializeBindingsAndListeners() {
         System.out.println("Initializing service-dependent bindings, listeners, and data...");
+
         if (playerService == null || lyricsService == null || queueService == null) {
             System.err.println("ERROR: Cannot initialize bindings - one or more services are null!");
             // Optionally show an error dialog to the user here
@@ -244,6 +273,7 @@ public class MainController implements Initializable {
         // Initialize Now Playing display based on initial song (likely null)
         updateNowPlayingDisplay(playerService.getCurrentSong());
     }
+
 
     // --- Setup Bindings and Listeners Dependent on Services ---
 
@@ -269,7 +299,10 @@ public class MainController implements Initializable {
             }
             currentTimeLabel.setText(formatTime(newVal.longValue()));
             if (lyricsService != null) {
-                lyricsService.updateCurrentDisplayLines(newVal.longValue());
+                // Pass the current user offset when updating lyrics
+                // For now, this user offset will be 0 until implemented.
+                // We will modify this call later.
+                lyricsService.updateCurrentDisplayLines(newVal.longValue() /*, userAdjustedOffsetMillis */);
             }
         }));
 
@@ -289,12 +322,15 @@ public class MainController implements Initializable {
         // Listener for Current Song in PlayerService -> Updates Now Playing Display & Lyrics
         playerService.currentSongProperty().addListener((_obs, _oldSong, newSong) -> Platform.runLater(() -> {
             updateNowPlayingDisplay(newSong); // Update "Now Playing" text labels
-
             if (newSong != null) {
                 // A new song has been loaded into PlayerService. Load its lyrics.
                 if (lyricsService != null) {
                     lyricsService.loadLyricsForSong(newSong); // FR3.1
                 }
+                // Reset user-adjusted lyric offset for the new song (to be implemented)
+                // currentLyricOffsetMillis = 0;
+                // lyricOffsetLabel.setText(currentLyricOffsetMillis + " ms");
+
             } else {
                 // Current song in PlayerService is null (e.g., after stop, end of queue). Reset UI elements.
                 resetUIForNoActiveSong();
@@ -311,7 +347,7 @@ public class MainController implements Initializable {
         updateControlsBasedOnStatus(playerService.getStatus());
         updateNowPlayingDisplay(playerService.getCurrentSong());
     }
-    
+
     /**
      * Helper method to reset UI elements when no song is active in the player.
      * Clears time labels, slider, and lyrics.
@@ -331,7 +367,6 @@ public class MainController implements Initializable {
             lyricsService.loadLyricsForSong(null); // Clears lyrics in LyricsService
         }
     }
-
 
     /**
      * Sets up bindings and listeners related to the LyricsService (e.g., displayLinesProperty).
@@ -354,6 +389,7 @@ public class MainController implements Initializable {
         next1LyricLabel.setText("");
         next2LyricLabel.setText("");
     }
+
 
     /**
      * Updates the state (text, enabled/disabled) of playback control buttons
@@ -378,14 +414,13 @@ public class MainController implements Initializable {
 
         // Determine if the Play button should be enabled
         boolean canStartPlayback = paused || // Can resume if paused
-                                  ((stoppedOrReady || haltedOrUnknown) && // Or if stopped/ready/halted/unknown
-                                   (songIsLoadedInPlayer || songIsSelectedInLibrary || queueCanProvideSong)); // AND there's something to play
+                    ((stoppedOrReady || haltedOrUnknown) && // Or if stopped/ready/halted/unknown
+                    (songIsLoadedInPlayer || songIsSelectedInLibrary || queueCanProvideSong)); // AND there's something to play
 
         playPauseButton.setText(playing ? "Pause" : "Play");
         playPauseButton.setDisable(!playing && !canStartPlayback); // Disable if not playing AND cannot start playback
 
         stopButton.setDisable(!playing && !paused); // Can only stop if actively playing or paused
-
         skipButton.setDisable(!queueCanProvideSong); // Can only skip if queue has songs
 
         // Visual reset for slider/time if player is stopped, halted, or ready (and not being sought by user)
@@ -394,6 +429,7 @@ public class MainController implements Initializable {
                 playbackSlider.setValue(0);
             }
             if (currentTimeLabel != null) currentTimeLabel.setText(formatTime(0));
+
             // If player truly stopped/halted AND no song is loaded, reset total duration label.
             // Max slider value is reset by currentSongProperty listener when song becomes null.
             if(haltedOrUnknown && !songIsLoadedInPlayer && totalDurationLabel != null) {
@@ -426,6 +462,7 @@ public class MainController implements Initializable {
      */
     private void populateGenreFilter() {
         if (genreFilterComboBox == null) return;
+
         Set<String> distinctGenres = SongDAO.getDistinctGenres();
         ObservableList<String> genreOptions = FXCollections.observableArrayList();
         genreOptions.add(ALL_GENRES); // Default "All Genres" option
@@ -446,6 +483,7 @@ public class MainController implements Initializable {
         }
         String searchText = searchTextField.getText();
         String genreFilter = genreFilterComboBox.getValue();
+
         if (ALL_GENRES.equals(genreFilter)) {
             genreFilter = null; // Treat "All Genres" as no filter for DAO
         }
@@ -492,7 +530,6 @@ public class MainController implements Initializable {
     }
 
     // --- Now Playing Display Update ---
-
     /**
      * Updates the 'Now Playing' labels (title and artist) in the UI.
      * Clears labels if the provided song is null.
@@ -512,14 +549,15 @@ public class MainController implements Initializable {
         }
     }
 
+
     // --- FXML Action Handlers ---
 
     /**
      * Handles the Play/Pause button action.
      * Implements FR1.3 (Play), FR1.4 (Pause).
      * If player is stopped/ready:
-     * - Plays the currently selected song from the library if one is selected.
-     * - Otherwise, plays the next song from the queue if available.
+     *  - Plays the currently selected song from the library if one is selected.
+     *  - Otherwise, plays the next song from the queue if available.
      */
     @FXML
     private void handlePlayPause() {
@@ -583,7 +621,7 @@ public class MainController implements Initializable {
         System.out.println("Skip clicked");
         if (playerService != null) {
             playerService.stop(); // Stop current song first (this also resets player state)
-            playNextSong(false);  // Attempt to play the next song from the queue (not auto-play context)
+            playNextSong(false); // Attempt to play the next song from the queue (not auto-play context)
         }
     }
 
@@ -610,7 +648,11 @@ public class MainController implements Initializable {
     @FXML
     private void handleFullscreenToggle() {
         System.out.println("Fullscreen toggle: " + fullscreenToggleButton.isSelected());
-        // TODO: Implement fullscreen logic (Requires Stage reference from TuneUpApplication)
+        if (primaryStage != null) {
+            primaryStage.setFullScreen(fullscreenToggleButton.isSelected());
+        } else {
+            System.err.println("Fullscreen toggle: Primary stage not available.");
+        }
     }
 
     /**
@@ -620,8 +662,50 @@ public class MainController implements Initializable {
     @FXML
     private void handleThemeToggle() {
         System.out.println("Theme toggle: " + themeToggleButton.isSelected());
-        // TODO: Implement theme switching logic (CSS manipulation, requires Scene access)
+        if (themeToggleButton.getScene() != null) {
+            if (themeToggleButton.isSelected()) {
+                // Apply dark mode
+                themeToggleButton.getScene().getStylesheets().add(getClass().getResource("/view/style.css").toExternalForm()); // Ensure base is there
+                if (themeToggleButton.getScene().getRoot().getStyleClass().stream().noneMatch(sc -> sc.equals("dark-mode"))) {
+                    themeToggleButton.getScene().getRoot().getStyleClass().add("dark-mode");
+                }
+                themeToggleButton.setText("Light Mode");
+            } else {
+                // Remove dark mode
+                themeToggleButton.getScene().getRoot().getStyleClass().remove("dark-mode");
+                themeToggleButton.setText("Dark Mode");
+            }
+        } else {
+            System.err.println("Theme toggle: Scene not available.");
+        }
     }
+
+    /**
+     * Handles the action for increasing the lyric timing offset. (FR3.6)
+     * @param event The action event.
+     */
+    @FXML
+    private void handleIncreaseOffset(ActionEvent event) {
+        System.out.println("Increase Offset button clicked.");
+        // TODO: Implement logic to increase offset and update lyricOffsetLabel and lyric display
+        // This will involve:
+        // 1. Getting a reference to the LyricsService.
+        // 2. Calling a method on LyricsService to increase user-defined offset, or manage offset in MainController.
+        // 3. Updating lyricOffsetLabel.setText(...);
+        // 4. Potentially forcing a re-evaluation of displayed lyrics if playback is active.
+    }
+
+    /**
+     * Handles the action for decreasing the lyric timing offset. (FR3.6)
+     * @param event The action event.
+     */
+    @FXML
+    private void handleDecreaseOffset(ActionEvent event) {
+        System.out.println("Decrease Offset button clicked.");
+        // TODO: Implement logic to decrease offset and update lyricOffsetLabel and lyric display
+        // Similar steps to handleIncreaseOffset.
+    }
+
 
     // --- Helper Methods ---
 
@@ -660,7 +744,7 @@ public class MainController implements Initializable {
             } else if (isAutoPlayTrigger) {
                 System.out.println("Auto-play: Queue empty. Not playing selected library song as per auto-play behavior.");
             } else {
-                 System.out.println("Queue empty, no selected song, or not an auto-play scenario for selected song.");
+                System.out.println("Queue empty, no selected song, or not an auto-play scenario for selected song.");
             }
         }
 
@@ -671,7 +755,7 @@ public class MainController implements Initializable {
             System.out.println("PlayNextSong: No song available to play. Ensuring player is cleared.");
             // If a song was playing and player didn't naturally stop/clear, explicitly clear it.
             if (playerService.getCurrentSong() != null || playerService.getStatus() == MediaPlayer.Status.PLAYING || playerService.getStatus() == MediaPlayer.Status.PAUSED) {
-                 playerService.loadSong(null, false); // This stops and unloads.
+                playerService.loadSong(null, false); // This stops and unloads.
             }
         }
     }
@@ -694,12 +778,13 @@ public class MainController implements Initializable {
         if (song == null) {
             System.out.println("MainController: loadAndPlaySong called with null song. Requesting player to unload.");
             playerService.loadSong(null, false); // PlayerService handles setting its currentSong to null.
-                                                 // Listeners on currentSongProperty will clear UI (lyrics, slider, etc.).
+                                                      // Listeners on currentSongProperty will clear UI (lyrics, slider, etc.).
             return;
         }
 
         // Lyrics loading is now primarily driven by the PlayerService.currentSongProperty listener
         // once PlayerService successfully sets the new song.
+
         System.out.println("MainController: Requesting player to load and play: " + song.getTitle());
         boolean loadingInitiated = playerService.loadSong(song, true); // Request PlayerService to load and auto-play
 
@@ -713,14 +798,15 @@ public class MainController implements Initializable {
             alert.setTitle("Playback Error");
             alert.setHeaderText("Could not load audio");
             alert.setContentText("Failed to load the audio file for:\n" +
-                                 song.getTitle() + " - " + song.getArtist() +
-                                 "\nPlease check file integrity and location.");
+                    song.getTitle() + " - " + song.getArtist() +
+                    "\nPlease check file integrity and location.");
             alert.showAndWait();
             updateControlsBasedOnStatus(MediaPlayer.Status.HALTED); // Reflect error state in UI
         }
         // UI updates (Now Playing, slider, time, lyrics for new song) are driven by listeners
         // on PlayerService's properties (status, currentTime, totalDuration, currentSong).
     }
+
 
     /**
      * Formats time in milliseconds to mm:ss string.
@@ -748,4 +834,5 @@ public class MainController implements Initializable {
         }
         return formatTime((long) millis);
     }
+
 } // End of MainController class
