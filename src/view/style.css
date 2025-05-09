@@ -1,49 +1,60 @@
-/* General Styles */
+/* General Styles (Light Mode - Default) */
 .root {
     -fx-font-family: "Segoe UI", Arial, sans-serif;
-    -fx-base: #ECEFF1; /* Light grey background */
+    -fx-base: #ECEFF1; /* Light grey base - used by some controls */
     -fx-background: #FFFFFF; /* White content background */
-    -fx-text-background-color: #37474F; /* Dark grey text */
+    -fx-text-background-color: #37474F; /* Dark grey text on light backgrounds */
 }
 
 /* Section Labels */
 .section-label {
     -fx-font-size: 1.1em;
     -fx-font-weight: bold;
-    -fx-text-fill: #1E88E5; /* Blue color */
+    -fx-text-fill: #1E88E5; /* Blue color for light mode */
     -fx-padding: 5 0 2 0;
 }
 
 /* Table View */
 .table-view {
-    -fx-border-color: #B0BEC5; /* Light border */
+    -fx-border-color: #B0BEC5;
     -fx-border-width: 1px;
+    -fx-background-color: #FFFFFF;
 }
 
 .table-view .column-header-background {
-    -fx-background-color: #CFD8DC; /* Lighter grey header */
+    -fx-background-color: #E0E0E0; /* Lighter grey header for light mode */
 }
 
 .table-view .column-header .label {
-    -fx-text-fill: #37474F;
+    -fx-text-fill: #37474F; /* Dark text for light header */
     -fx-font-weight: bold;
+}
+
+.table-view .table-row-cell {
+    -fx-background-color: -fx-control-inner-background;
+    -fx-text-fill: -fx-text-background-color;
+}
+
+.table-view .table-row-cell:selected {
+    -fx-background-color: #0078D7; /* Standard selection blue */
+    -fx-text-fill: white;
 }
 
 /* Queue Section */
 .queue-titled-pane > .title {
-    -fx-background-color: #F5F5F5; /* Very light grey */
+    -fx-background-color: #F5F5F5;
     -fx-border-color: #E0E0E0;
-    -fx-border-width: 0 0 1 0; /* Bottom border only */
+    -fx-border-width: 0 0 1 0;
 }
 
 .queue-header-label {
     -fx-font-size: 1.05em;
     -fx-font-weight: bold;
-    -fx-text-fill: #455A64; /* Slightly darker grey */
+    -fx-text-fill: #455A64;
 }
 
 .queue-details {
-    -fx-background-color: #FAFAFA; /* Slightly off-white */
+    -fx-background-color: #FAFAFA;
     -fx-padding: 5px;
 }
 
@@ -54,8 +65,8 @@
 
 .queue-count-label {
     -fx-font-size: 0.9em;
-    -fx-text-fill: #78909C; /* Lighter grey */
-    -fx-padding: 0 10 5 0; /* Padding on right and bottom */
+    -fx-text-fill: #78909C;
+    -fx-padding: 0 10 5 0;
 }
 
 /* Lyrics Display */
@@ -70,29 +81,48 @@
 .current-lyric {
     -fx-font-size: 1.8em;
     -fx-font-weight: bold;
-    -fx-text-fill: #0D47A1; /* Dark Blue */
-    -fx-effect: dropshadow( gaussian , rgba(0,0,0,0.2) , 5, 0.0 , 0 , 1 ); /* Subtle shadow */
+    -fx-text-fill: #0D47A1; /* Dark Blue for light mode */
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 5, 0.0, 0, 1);
 }
 
 .other-lyric {
     -fx-font-size: 1.1em;
-    -fx-text-fill: #607D8B; /* Greyish blue */
-    -fx-opacity: 0.8; /* Slightly faded */
+    -fx-text-fill: #607D8B; /* Greyish blue for light mode */
+    -fx-opacity: 0.8;
 }
 
 /* Time Labels */
 .time-label {
     -fx-font-size: 0.95em;
     -fx-text-fill: #37474F;
-    -fx-font-family: "Consolas", monospace; /* Monospaced font for time */
+    -fx-font-family: "Consolas", monospace;
 }
+
+/* Now Playing Bar */
+.now-playing-bar {
+    -fx-background-color: #ECEFF1;
+    -fx-padding: 5px 10px;
+    -fx-border-color: #CFD8DC;
+    -fx-border-width: 1 0 1 0;
+}
+
+.now-playing-label-title {
+    -fx-font-weight: bold;
+    -fx-text-fill: #37474F;
+    -fx-padding: 0 5 0 0;
+}
+
+.now-playing-label-info {
+    -fx-text-fill: #37474F;
+}
+
 
 /* Control Bar */
 .control-button-bar {
-    -fx-background-color: #E0E0E0; /* Light grey background */
+    -fx-background-color: #E0E0E0;
     -fx-padding: 8px;
     -fx-border-color: #BDBDBD;
-    -fx-border-width: 1 0 0 0; /* Top border only */
+    -fx-border-width: 1 0 0 0;
 }
 
 /* General Controls */
@@ -100,25 +130,27 @@
     -fx-background-color: #B0BEC5, linear-gradient(#E0E0E0, #BDBDBD);
     -fx-background-insets: 0, 1;
     -fx-background-radius: 3px;
-    -fx-text-fill: #212121; /* Dark text */
+    -fx-text-fill: #212121; /* Dark text for light buttons */
     -fx-font-weight: bold;
     -fx-padding: 5 15 5 15;
 }
 
 .button:hover, .toggle-button:hover {
-    -fx-base: #CFD8DC; /* Lighter shade on hover */
+    -fx-base: #CFD8DC; /* Lighter shade on hover for light mode */
 }
 
 .button:pressed, .toggle-button:selected {
-    -fx-background-color: #90A4AE; /* Darker when pressed/selected */
+    -fx-background-color: #90A4AE; /* Darker when pressed/selected for light mode */
     -fx-text-fill: white;
 }
 
 .text-field, .combo-box .text-field {
-    -fx-prompt-text-fill: #9E9E9E; /* Grey prompt text */
+    -fx-prompt-text-fill: #9E9E9E;
     -fx-border-color: #B0BEC5;
     -fx-border-width: 1px;
     -fx-border-radius: 3px;
+    -fx-background-color: #FFFFFF;
+    -fx-text-fill: #212121; /* Text color for input */
 }
 
 .combo-box .arrow-button {
@@ -131,71 +163,131 @@
 }
 
 .slider .thumb {
-    -fx-background-color: #546E7A; /* Darker thumb */
+    -fx-background-color: #546E7A;
     -fx-background-radius: 5px;
 }
 
-/* Now Playing Bar */
-.now-playing-bar {
-    -fx-background-color: #E8EAF6; /* Light Indigo background */
-    -fx-padding: 5 10 5 10;
-    -fx-border-color: #C5CAE9;
-    -fx-border-width: 1 0 0 0; /* Top border */
+/* --- Dark Mode Styles --- */
+.dark-mode .root {
+    -fx-base: #263238; /* Dark grey base for dark mode */
+    -fx-background: #212121; /* Very dark background */
+    -fx-text-background-color: #E0E0E0; /* Light grey text on dark backgrounds */
+    -fx-control-inner-background: #37474F; /* Background for text input areas */
 }
 
-.now-playing-label-title {
-    -fx-font-size: 0.9em;
-    -fx-font-weight: bold;
-    -fx-text-fill: #3F51B5; /* Indigo */
+.dark-mode .section-label {
+    -fx-text-fill: #64B5F6; /* Light blue for dark mode */
 }
 
-.now-playing-label-info {
-    -fx-font-size: 0.95em;
-    -fx-text-fill: #303F9F; /* Darker Indigo */
-    -fx-font-style: italic;
+.dark-mode .table-view {
+    -fx-border-color: #455A64; /* Darker border */
+    -fx-background-color: #263238; /* Dark background for table */
 }
 
-/* Dark Mode Theme (Example - can be toggled via code) */
-.dark-mode {
-    -fx-base: #37474F; /* Dark grey base */
-    -fx-background: #263238; /* Very dark background */
-    -fx-control-inner-background: #455A64; /* Darker inner controls */
-    -fx-text-background-color: #ECEFF1; /* Light text */
+.dark-mode .table-view .column-header-background {
+    -fx-background-color: #37474F; /* Darker header for dark mode */
 }
 
-.dark-mode .section-label { -fx-text-fill: #64B5F6; } /* Lighter blue */
-.dark-mode .table-view { -fx-border-color: #546E7A; }
-.dark-mode .table-view .column-header-background { -fx-background-color: #455A64; }
-.dark-mode .table-view .column-header .label { -fx-text-fill: #ECEFF1; }
-.dark-mode .queue-titled-pane > .title { -fx-background-color: #37474F; -fx-border-color: #455A64; }
-.dark-mode .queue-header-label { -fx-text-fill: #B0BEC5; }
-.dark-mode .queue-details { -fx-background-color: #37474F; }
-.dark-mode .queue-item-label { -fx-text-fill: #B0BEC5; }
-.dark-mode .queue-count-label { -fx-text-fill: #90A4AE; }
-.dark-mode .lyrics-container { -fx-background-color: #37474F; -fx-border-color: #455A64; }
-.dark-mode .current-lyric { -fx-text-fill: #82B1FF; } /* Lighter accent blue */
-.dark-mode .other-lyric { -fx-text-fill: #90A4AE; }
-.dark-mode .time-label { -fx-text-fill: #ECEFF1; }
-.dark-mode .control-button-bar { -fx-background-color: #263238; -fx-border-color: #455A64; }
-.dark-mode .button, .dark-mode .toggle-button { -fx-background-color: #546E7A, linear-gradient(#78909C, #546E7A); -fx-text-fill: #ECEFF1; }
-.dark-mode .button:hover, .dark-mode .toggle-button:hover { -fx-base: #607D8B; }
-.dark-mode .button:pressed, .dark-mode .toggle-button:selected { -fx-background-color: #455A64; -fx-text-fill: white; }
-.dark-mode .text-field, .dark-mode .combo-box .text-field { -fx-border-color: #546E7A; -fx-prompt-text-fill: #78909C; -fx-text-fill: #ECEFF1; }
-.dark-mode .combo-box .arrow-button { -fx-background-color: #546E7A; }
-.dark-mode .slider .track { -fx-background-color: #546E7A; }
-.dark-mode .slider .thumb { -fx-background-color: #B0BEC5; }
+.dark-mode .table-view .column-header .label {
+    -fx-text-fill: #B0BEC5; /* Lighter text for dark header */
+}
 
-/* Dark Mode Now Playing Bar */
+.dark-mode .table-view .table-row-cell {
+    -fx-background-color: -fx-control-inner-background; /* Uses dark control inner background */
+    -fx-text-fill: -fx-text-background-color; /* Uses light text */
+}
+
+.dark-mode .table-view .table-row-cell:selected {
+    -fx-background-color: #0277BD; /* Slightly different blue for dark mode selection */
+    -fx-text-fill: white;
+}
+
+.dark-mode .queue-titled-pane > .title {
+    -fx-background-color: #37474F; /* Darker background */
+    -fx-border-color: #455A64;
+}
+
+.dark-mode .queue-header-label {
+    -fx-text-fill: #B0BEC5; /* Lighter text */
+}
+
+.dark-mode .queue-details {
+    -fx-background-color: #263238; /* Dark background */
+}
+
+.dark-mode .queue-item-label {
+    -fx-text-fill: #90A4AE; /* Lighter text */
+}
+
+.dark-mode .queue-count-label {
+    -fx-text-fill: #78909C; /* Even lighter grey */
+}
+
+.dark-mode .lyrics-container {
+    -fx-background-color: #37474F; /* Dark background */
+    -fx-border-color: #455A64;
+}
+
+.dark-mode .current-lyric {
+    -fx-text-fill: #81D4FA; /* Light Blue for dark mode */
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.5), 5, 0.0, 0, 1); /* Shadow might need adjustment */
+}
+
+.dark-mode .other-lyric {
+    -fx-text-fill: #B0BEC5; /* Lighter greyish blue for dark mode */
+}
+
+.dark-mode .time-label {
+    -fx-text-fill: #E0E0E0; /* Light text */
+}
+
 .dark-mode .now-playing-bar {
-    -fx-background-color: #303F9F; /* Dark Indigo background */
-    -fx-border-color: #3F51B5;
+    -fx-background-color: #263238; /* Darker background */
+    -fxborder-color: #455A64;
 }
 
 .dark-mode .now-playing-label-title {
-    -fx-text-fill: #9FA8DA; /* Lighter Indigo */
+    -fx-text-fill: #E0E0E0; /* Light text */
 }
 
 .dark-mode .now-playing-label-info {
-    -fx-text-fill: #C5CAE9; /* Even Lighter Indigo */
+    -fx-text-fill: #E0E0E0; /* Light text */
 }
 
+.dark-mode .control-button-bar {
+    -fx-background-color: #37474F; /* Darker background */
+    -fx-border-color: #455A64;
+}
+
+.dark-mode .button, .dark-mode .toggle-button {
+    -fx-background-color: #546E7A, linear-gradient(#607D8B, #455A64); /* Darker button colors */
+    -fx-text-fill: #ECEFF1; /* Light text for dark buttons */
+}
+
+.dark-mode .button:hover, .dark-mode .toggle-button:hover {
+    -fx-base: #78909C; /* Lighter shade on hover for dark mode */
+}
+
+.dark-mode .button:pressed, .dark-mode .toggle-button:selected {
+    -fx-background-color: #455A64; /* Even darker when pressed/selected */
+    -fx-text-fill: white;
+}
+
+.dark-mode .text-field, .dark-mode .combo-box .text-field {
+    -fx-prompt-text-fill: #78909C; /* Lighter prompt text */
+    -fx-border-color: #546E7A;
+    -fx-background-color: #37474F; /* Dark background for input */
+    -fx-text-fill: #ECEFF1; /* Light text for input */
+}
+
+.dark-mode .combo-box .arrow-button {
+    -fx-background-color: #546E7A;
+}
+
+.dark-mode .slider .track {
+    -fx-background-color: #455A64; /* Darker track */
+}
+
+.dark-mode .slider .thumb {
+    -fx-background-color: #90A4AE; /* Lighter thumb for contrast */
+}
