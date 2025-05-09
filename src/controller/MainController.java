@@ -273,7 +273,6 @@ public class MainController implements Initializable {
                  playbackSlider.setMax(0);
                  currentTimeLabel.setText(formatTime(0.0));
                  totalDurationLabel.setText(formatTime(0.0));
-                 if(lyricsService != null) lyricsService.clearLyrics();
              }
         }));
 
@@ -535,6 +534,11 @@ public class MainController implements Initializable {
      */
     private void playNextSong() {
         if (playerService == null) return;
+
+        // Reset Now Playing labels and clear lyrics
+        nowPlayingTitleLabel.setText("-");
+        nowPlayingArtistLabel.setText("-");
+        lyricsService.clearLyrics();
 
         Song songToPlay = null;
 
