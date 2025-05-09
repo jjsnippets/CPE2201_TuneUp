@@ -102,6 +102,9 @@ public class MainController implements Initializable {
         setupPlaybackSliderListeners();
         updateNowPlayingDisplay(null); // Initialize Now Playing labels
         playbackSlider.setDisable(true); // Initially disable slider until a song is loaded
+        if (stopButton != null) {
+            stopButton.setText("Stop All");
+        }
     }
 
 
@@ -512,11 +515,20 @@ public class MainController implements Initializable {
 
     @FXML
     private void handleStop() {
-        System.out.println("Stop clicked");
+        System.out.println("Stop All clicked");
         if (playerService != null) {
             playerService.stop();
             // playerService.currentSongProperty listener handles UI updates including NowPlaying
         }
+        if (queueService != null) {
+            queueService.clear(); // Clear the queue
+            System.out.println("Queue cleared by Stop All.");
+        }
+        // Ensure UI reflects that nothing will play next
+        updateControlsBasedOnStatus(playerService != null ? playerService.getStatus() : MediaPlayer.Status.UNKNOWN);
+        updateNowPlayingDisplay(null); // Clear now playing display
+        updateQueueDisplay(); // Update queue display (should be empty)
+
     }
 
     @FXML
