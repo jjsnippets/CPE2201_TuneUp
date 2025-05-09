@@ -274,16 +274,37 @@ public class MainController implements Initializable {
 
         // Listener for Current Song -> Update Now Playing Display & Reset Slider
         playerService.currentSongProperty().addListener((_obs, _oldSong, newSong) -> Platform.runLater(() -> {
-            updateNowPlayingDisplay(newSong);
-            if (newSong == null) { // If current song becomes null (e.g., after stop/skip last)
-                // Reset slider and time labels
-                playbackSlider.setValue(0);
-                playbackSlider.setMax(0); // Reset max if no song
-                currentTimeLabel.setText(formatTime(0.0));
-                totalDurationLabel.setText(formatTime(0.0));
-                // Lyrics are cleared by playNextSong or if loadAndPlaySong fails for lyrics
+            updateNowPlayingDisplay(newSong); // Update Now Playing text labels (title, artist)
+
+            if (newSong != null) {
+                // A new song has been set in the PlayerService
+                if (lyricsService != null) {
+                    lyricsService.loadLyricsForSong(newSong); // Load/reload lyrics for the new song
+                }
+                // Other UI elements like slider max, total duration are updated by other listeners
+                // (e.g., on playerService.totalDurationProperty()) when the new media is ready.
+                // The playbackSlider's enabled/disabled state is handled by its separate disableProperty binding.
+            } else {
+                // The current song in PlayerService has become null.
+                // This typically happens on stop, when the queue ends, or during player reset.
+                if (playbackSlider != null) {
+                    playbackSlider.setValue(0);
+                    playbackSlider.setMax(0); // Reset max as no song duration is available
+                }
+                if (currentTimeLabel != null) {
+                    currentTimeLabel.setText(formatTime(0.0)); // Assuming formatTime(0.0) gives "0:00"
+                }
+                if (totalDurationLabel != null) {
+                    totalDurationLabel.setText(formatTime(0.0));
+                }
+                if (lyricsService != null) {
+                    // Instruct LyricsService to clear lyrics by passing null
+                    // LyricsService.loadLyricsForSong(null) handles clearing.
+                    // Or, if preferred, call lyricsService.clearLyrics() directly if it's more explicit.
+                    lyricsService.loadLyricsForSong(null); 
+                }
+                // The playbackSlider should become disabled via its disableProperty binding.
             }
-            // Slider disable state will be updated by its binding.
         }));
 
         // Bind slider disable state here to react to currentSongProperty changes
@@ -517,18 +538,14 @@ public class MainController implements Initializable {
     private void handleStop() {
         System.out.println("Stop All clicked");
         if (playerService != null) {
-            playerService.stop();
-            // playerService.currentSongProperty listener handles UI updates including NowPlaying
+            playerService.loadSong(null, false);
         }
         if (queueService != null) {
             queueService.clear(); // Clear the queue
             System.out.println("Queue cleared by Stop All.");
         }
-        // Ensure UI reflects that nothing will play next
         updateControlsBasedOnStatus(playerService != null ? playerService.getStatus() : MediaPlayer.Status.UNKNOWN);
-        updateNowPlayingDisplay(null); // Clear now playing display
         updateQueueDisplay(); // Update queue display (should be empty)
-
     }
 
     @FXML
@@ -579,14 +596,6 @@ public class MainController implements Initializable {
     */
     private void playNextSong(boolean isAutoPlayTrigger) { // MODIFIED: Added boolean parameter
         if (playerService == null) return;
-
-        // Reset Now Playing labels and clear lyrics
-        if (nowPlayingTitleLabel != null) nowPlayingTitleLabel.setText("-");
-        if (nowPlayingArtistLabel != null) nowPlayingArtistLabel.setText("-");
-        if (lyricsService != null) {
-            lyricsService.clearLyrics();
-        }
-
         Song songToPlay = null;
 
         // 1. Try getting the next song from the queue
@@ -602,9 +611,7 @@ public class MainController implements Initializable {
         //    - If it IS an auto-play trigger, DO NOT play the selected song.
         if (songToPlay == null) { // Queue is empty or failed to get song
             if (!isAutoPlayTrigger && currentlySelectedSong != null) {
-                // This branch is for user-initiated actions (Play/Skip) when queue is empty
                 MediaPlayer.Status currentStatus = playerService.getStatus();
-                // Ensure player is in a state where it can start a new song
                 if (currentStatus != MediaPlayer.Status.PLAYING && currentStatus != MediaPlayer.Status.PAUSED) {
                     songToPlay = currentlySelectedSong;
                     System.out.println("Queue empty, user initiated play of selected song: " + songToPlay);
@@ -612,27 +619,20 @@ public class MainController implements Initializable {
                     System.out.println("Queue empty, song selected, but player is busy. Not playing selected song for this user action.");
                 }
             } else if (isAutoPlayTrigger) {
-                // This branch is for auto-play when queue is empty. We specifically DO NOT play selected song.
                 System.out.println("Auto-play: Queue empty, and per new behavior, not playing selected song from library.");
             } else {
-                 // This branch: not auto-play, but no song selected. Or some other unlikely combo.
                 System.out.println("Queue empty, no selected song to play, or not an auto-play scenario for selected song.");
             }
         }
 
 
-        // 3. Load and play the determined song, or stop if none found
+        // 3. Load and play the determined song, or stop/clear if none found
         if (songToPlay != null) {
             loadAndPlaySong(songToPlay);
         } else {
             System.out.println("PlayNextSong: No song available to play.");
-            // Ensure player is fully stopped if nothing could be played and it was playing/paused.
-            MediaPlayer.Status currentStatus = playerService.getStatus();
-            if (currentStatus == MediaPlayer.Status.PLAYING || currentStatus == MediaPlayer.Status.PAUSED) {
-                playerService.stop(); // Stop if it was playing/paused without a next song
-            } else {
-                // If already stopped/ready/halted, ensure controls reflect inability to play
-                updateControlsBasedOnStatus(currentStatus);
+            if (playerService.getCurrentSong() != null) {
+                playerService.loadSong(null, false);
             }
         }
     }
@@ -645,35 +645,55 @@ public class MainController implements Initializable {
     * @param song The song to load and play.
     */
     private void loadAndPlaySong(Song song) {
-        if (song == null || playerService == null || lyricsService == null) {
-            System.err.println("Cannot load/play song: Null song or service(s).");
-            if(playerService != null) playerService.stop(); // Ensure player stops if called with null song or missing service
+        if (playerService == null) {
+            System.err.println("MainController: Cannot load/play song: PlayerService is null.");
+            // Consider showing an error to the user or more robust handling
+            if (lyricsService != null) {
+                lyricsService.loadLyricsForSong(null); // Clear lyrics if player is unavailable
+            }
+            updateControlsBasedOnStatus(MediaPlayer.Status.HALTED); // Reflect error state
             return;
         }
 
-        System.out.println("Requesting load and play for: " + song.getTitle());
+        if (song == null) {
+            // This case handles stopping playback or end of queue where no new song is available.
+            System.out.println("MainController: loadAndPlaySong called with null song. Requesting player to load null.");
+            playerService.loadSong(null, false); // PlayerService will set its currentSong to null.
+                                                 // The currentSongProperty listener (modified above) will then
+                                                 // handle clearing UI elements including lyrics.
+            return;
+        }
 
-        // Load lyrics (can happen concurrently or before player load)
-        // Consider if lyrics loading failure should prevent audio playback attempt
-        lyricsService.loadLyricsForSong(song); // This method should handle its own errors/nulls
+        // If a song object is provided:
+        // The direct call to lyricsService.loadLyricsForSong(song) is REMOVED from here.
+        // Lyrics will now be loaded by the playerService.currentSongProperty() listener
+        // once PlayerService successfully sets the new song.
+        System.out.println("MainController: Lyrics for '" + song.getTitle() + "' will be loaded by the currentSongProperty listener upon successful song load in PlayerService.");
 
-        // Load song into player and request auto-play on ready.
-        // The PlayerService's setOnReady handler is expected to call play() if auto-play is requested.
-        boolean loadingInitiated = playerService.loadSong(song, true); // Pass true to request auto-play
+        System.out.println("MainController: Requesting player to load and play: " + song.getTitle());
+        boolean loadingInitiated = playerService.loadSong(song, true); // Request PlayerService to load and auto-play
 
         if (!loadingInitiated) {
-            // Handle case where PlayerService.loadSong indicated immediate failure (e.g., file not found before async load)
-            System.err.println("Failed to initiate loading for " + song.getTitle() + ". Player status should reflect this (e.g., HALTED).");
-            // Optionally show user alert here, though PlayerService might also log/handle
+            System.err.println("MainController: PlayerService failed to initiate loading for " + song.getTitle() + ".");
+            // PlayerService should ideally set its status to HALTED, and its currentSong might become null or remain the old one.
+            // The status listeners and currentSong listeners should attempt to update the UI.
+            // If PlayerService doesn't set currentSong to null on such a failure,
+            // lyrics for a previous song might persist.
+            // To be safe, explicitly clear lyrics if loading fails immediately.
+            if (lyricsService != null) {
+                lyricsService.loadLyricsForSong(null);
+            }
+            // Show an alert for immediate loading failures.
             Alert alert = new Alert(Alert.AlertType.ERROR);
             alert.setTitle("Playback Error");
             alert.setHeaderText("Could not load audio");
-            alert.setContentText("Failed to load the audio file for:\n" + song.getTitle() + " - " + song.getArtist() + "\nPlease check file integrity and location.");
+            alert.setContentText("Failed to load the audio file for:\\n" + song.getTitle() + " - " + song.getArtist() + "\\nPlease check file integrity and location.");
             alert.showAndWait();
             updateControlsBasedOnStatus(MediaPlayer.Status.HALTED); // Reflect error state in UI
         }
-        // PlayerService handles the actual 'play()' call internally when ready and if auto-play was true.
-        // UI updates (Now Playing, slider, etc.) are driven by listeners on PlayerService properties.
+        // PlayerService handles the actual 'play()' call internally when the media is ready (if auto-play was true).
+        // All UI updates (Now Playing, slider, time, lyrics) are now primarily driven by listeners
+        // on PlayerService's properties (status, currentTime, totalDuration, currentSong).
     }
 
 
