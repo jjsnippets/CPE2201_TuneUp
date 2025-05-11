@@ -2,561 +2,277 @@ package controller;
 
 // --- JavaFX Imports ---
 import javafx.application.Platform;
-import javafx.beans.binding.Bindings;
-import javafx.collections.FXCollections;
-import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
-import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
-import javafx.scene.control.*; // Import all controls for convenience
-import javafx.scene.control.cell.PropertyValueFactory;
-import javafx.scene.layout.BorderPane; // For root panes
-import javafx.scene.layout.StackPane;  // If StackPane is root in FXML
-import javafx.scene.layout.VBox;
-import javafx.scene.media.MediaPlayer;
+import javafx.scene.Node;
+import javafx.scene.control.Alert;
+import javafx.scene.control.ToggleButton;
+import javafx.scene.layout.StackPane;
+import javafx.scene.media.MediaPlayer; // For MediaPlayer.Status
 import javafx.stage.Stage;
 
 // --- Model Imports ---
-import model.LyricLine;
-import model.Song;
+import model.LyricLine; // For getLyricTextOrEmpty utility
+import model.Song;    // For loadAndPlaySong utility
 
 // --- Service Imports ---
 import service.LyricsService;
 import service.PlayerService;
 import service.QueueService;
 
-// --- DAO Import ---
-import dao.SongDAO;
-
 // --- Util Imports ---
 import util.LrcWriter; // For saving offset
 import java.io.IOException; // For LrcWriter exception
 import java.net.URL;
-import java.util.List;
+import java.util.List; // For getLyricTextOrEmpty utility
 import java.util.ResourceBundle;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Controller class for the MainView.fxml layout.
- * Handles user interactions, updates the UI based on service states,
- * and coordinates actions between the UI and the backend services.
- * Manages normal and fullscreen views, lyric timing adjustments, and playback controls.
+ * Main orchestrating controller for the TuneUp application.
+ * Manages the primary stage, switches between Normal and Fullscreen views,
+ * injects services into sub-controllers, and coordinates global actions.
  */
 public class MainController implements Initializable {
 
-    // --- FXML Injected Fields for Normal View ---
-    @FXML private BorderPane normalViewRootPane;
+    @FXML private StackPane rootStackPane;
+    @FXML private Node normalView;
+    @FXML private NormalViewController normalViewController;
+    @FXML private Node fullscreenView;
+    @FXML private FullscreenViewController fullscreenViewController;
 
-    @FXML private TextField searchTextField;
-    @FXML private ComboBox<String> genreFilterComboBox;
-    @FXML private TableView<Song> songTableView;
-    @FXML private TableColumn<Song, String> titleColumn;
-    @FXML private TableColumn<Song, String> artistColumn;
-    @FXML private Button addToQueueButton;
-
-    @FXML private TitledPane queueTitledPane;
-    @FXML private Label queueSong1Label;
-    @FXML private Label queueSong2Label;
-    @FXML private Label queueSong3Label;
-    @FXML private Label queueCountLabel;
-
-    @FXML private VBox lyricsContainer;
-    @FXML private Label previousLyricLabel;
-    @FXML private Label currentLyricLabel;
-    @FXML private Label next1LyricLabel;
-    @FXML private Label next2LyricLabel;
-
-    @FXML private Label nowPlayingTitleLabel;
-    @FXML private Label nowPlayingArtistLabel;
-    @FXML private Label currentTimeLabel;
-    @FXML private Slider playbackSlider;
-    @FXML private Label totalDurationLabel;
-
-    @FXML private Button playPauseButton;
-    @FXML private Button stopButton;
-    @FXML private Button skipButton;
-    @FXML private ToggleButton fullscreenToggleButton; // In normal view
-    @FXML private ToggleButton themeToggleButton;
-
-    @FXML private Button increaseOffsetButton;
-    @FXML private Label lyricOffsetLabel;
-    @FXML private Button decreaseOffsetButton;
-
-    // --- FXML Injected Fields for Fullscreen View ---
-    @FXML private BorderPane fullscreenViewRootPane;
-    @FXML private Label fullscreenNextSongLabel;
-    @FXML private Label fullscreenQueueCountLabel;
-    @FXML private Label fullscreenPreviousLyricLabel;
-    @FXML private Label fullscreenCurrentLyricLabel;
-    @FXML private Label fullscreenNext1LyricLabel;
-    @FXML private Label fullscreenNext2LyricLabel;
-    @FXML private Label fullscreenCurrentTimeLabel;
-    @FXML private Slider fullscreenPlaybackSlider;
-    @FXML private Label fullscreenTotalDurationLabel;
-    @FXML private Button fullscreenPlayPauseButton;
-    @FXML private Button fullscreenSkipButton;
-    @FXML private ToggleButton fullscreenExitButton;
-
-
-    // --- Service Dependencies ---
     private PlayerService playerService;
     private LyricsService lyricsService;
     private QueueService queueService;
     private Stage primaryStage;
 
-    // --- State ---
-    private Song currentlySelectedSong = null;
-    private boolean isUserSeeking = false; // For normal view slider
-    private boolean isUserSeekingFullscreen = false; // For fullscreen view slider
-    private int currentSongLiveOffsetMs = 0; // Live offset for the current song (from [offset:...] in LRC, user-adjustable)
-    private static final int LYRIC_OFFSET_ADJUSTMENT_STEP = 100; // Milliseconds
+    // Shared state for lyric offset, managed by this central controller
+    private int currentSongLiveOffsetMs = 0;
+    public static final int LYRIC_OFFSET_ADJUSTMENT_STEP = 100;
 
-    // --- Constants ---
-    private static final String ALL_GENRES = "All Genres";
-
-    // Listener for queue changes
-    private final ListChangeListener<Song> queueChangeListener = change ->
-            Platform.runLater(() -> {
-                updateQueueDisplay(); // Normal view
-                if (primaryStage != null && primaryStage.isFullScreen()) {
-                    updateFullscreenUIDisplay(); // Update fullscreen queue info
-                }
-            });
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-        System.out.println("MainController initialized.");
-
-        // Normal view initializations
-        setupTableViewColumns();
-        addSearchAndFilterListeners();
-        addTableViewSelectionListener();
-        setupPlaybackSliderListeners();
-        updateNowPlayingDisplay(null);
-        playbackSlider.setDisable(true);
-        if (stopButton != null) stopButton.setText("Stop All");
-        if (lyricOffsetLabel != null) lyricOffsetLabel.setText("0 ms");
-
-        // Fullscreen view initializations
-        setupFullscreenPlaybackSliderListeners();
-        if (fullscreenViewRootPane != null) fullscreenViewRootPane.setVisible(false); // Ensure hidden initially
+        System.out.println("Main Orchestrating Controller initialized.");
+        if (normalView != null) normalView.setVisible(true);
+        if (fullscreenView != null) fullscreenView.setVisible(false);
     }
 
-    /**
-     * Injects the primary stage and sets up listener for fullscreen changes.
-     * @param stage The primary application stage.
-     */
     public void setPrimaryStage(Stage stage) {
         this.primaryStage = stage;
         if (this.primaryStage != null) {
-            this.primaryStage.fullScreenProperty().addListener((obs, oldVal, newVal) -> {
-                if (newVal) { // Entered fullscreen
-                    if(normalViewRootPane != null) normalViewRootPane.setVisible(false);
-                    if(fullscreenViewRootPane != null) fullscreenViewRootPane.setVisible(true);
-                    if(fullscreenToggleButton != null) fullscreenToggleButton.setSelected(true);
-                    if (fullscreenExitButton != null) fullscreenExitButton.setSelected(true);
-                    updateFullscreenUIDisplay();
-                } else { // Exited fullscreen
-                    if(fullscreenViewRootPane != null) fullscreenViewRootPane.setVisible(false);
-                    if(normalViewRootPane != null) normalViewRootPane.setVisible(true);
-                    if(fullscreenToggleButton != null) fullscreenToggleButton.setSelected(false);
-                    if (fullscreenExitButton != null) fullscreenExitButton.setSelected(false);
+            this.primaryStage.fullScreenProperty().addListener((obs, oldVal, isFullScreen) -> {
+                if (isFullScreen) {
+                    if(normalView != null) normalView.setVisible(false);
+                    if(fullscreenView != null) fullscreenView.setVisible(true);
+                    if (fullscreenViewController != null) {
+                        syncThemeToggleStates(normalViewController, fullscreenViewController);
+                        fullscreenViewController.updateUIDisplay();
+                    }
+                } else {
+                    if(fullscreenView != null) fullscreenView.setVisible(false);
+                    if(normalView != null) normalView.setVisible(true);
+                    if (normalViewController != null) {
+                        syncThemeToggleStates(fullscreenViewController, normalViewController);
+                        normalViewController.updateUIDisplay();
+                    }
                 }
             });
         }
     }
 
-    // --- Service Injection Methods ---
+    private void syncThemeToggleStates(SubController source, SubController target) {
+        if (source != null && source.getThemeToggleButton() != null &&
+            target != null && target.getThemeToggleButton() != null) {
+            target.getThemeToggleButton().setSelected(source.getThemeToggleButton().isSelected());
+            target.getThemeToggleButton().setText(source.getThemeToggleButton().getText());
+        }
+    }
+
     public void setPlayerService(PlayerService playerService) { this.playerService = playerService; }
     public void setLyricsService(LyricsService lyricsService) { this.lyricsService = lyricsService; }
-    public void setQueueService(QueueService queueService) {
-        if (this.queueService != null) {
-            this.queueService.getQueue().removeListener(queueChangeListener);
-        }
-        this.queueService = queueService;
-        if (this.queueService != null) {
-            this.queueService.getQueue().addListener(queueChangeListener);
-            updateQueueDisplay();
-        }
-    }
+    public void setQueueService(QueueService queueService) { this.queueService = queueService; }
 
-    /**
-     * Called after all services are injected to set up bindings and load initial data.
-     */
-    public void initializeBindingsAndListeners() {
+    public void initializeSubControllersAndServices() {
+        System.out.println("MainController: Initializing sub-controllers and injecting services...");
         if (playerService == null || lyricsService == null || queueService == null) {
-            System.err.println("ERROR: MainController cannot initialize bindings - services missing!");
-            return;
-        }
-        populateGenreFilter();
-        updateSongTableView();
-        setupPlayerBindingsAndListeners();
-        setupLyricsBindingsAndListeners();
-
-        updateControlsBasedOnStatus(playerService.getStatus());
-        updateNowPlayingDisplay(playerService.getCurrentSong());
-        if (primaryStage != null && primaryStage.isFullScreen()) { // Initial update if starts in fullscreen
-            updateFullscreenUIDisplay();
-        }
-    }
-
-    // --- UI Setup Methods (Normal View) ---
-    private void setupTableViewColumns() {
-        if(titleColumn != null) titleColumn.setCellValueFactory(new PropertyValueFactory<>("title"));
-        if(artistColumn != null) artistColumn.setCellValueFactory(new PropertyValueFactory<>("artist"));
-    }
-
-    private void addSearchAndFilterListeners() {
-        if(searchTextField != null) searchTextField.textProperty().addListener((_obs, _ov, _nv) -> updateSongTableView());
-        if(genreFilterComboBox != null) genreFilterComboBox.valueProperty().addListener((_obs, _ov, _nv) -> updateSongTableView());
-    }
-
-    private void addTableViewSelectionListener() {
-        if(songTableView != null){
-            TableView.TableViewSelectionModel<Song> sm = songTableView.getSelectionModel();
-            sm.setSelectionMode(SelectionMode.SINGLE);
-            sm.selectedItemProperty().addListener((obs, ov, nv) -> {
-                this.currentlySelectedSong = nv;
-                if(addToQueueButton != null) addToQueueButton.setDisable(nv == null);
-                if(playerService == null || (playerService.getStatus() != MediaPlayer.Status.PLAYING && playerService.getStatus() != MediaPlayer.Status.PAUSED)) {
-                    updateControlsBasedOnStatus(playerService != null ? playerService.getStatus() : MediaPlayer.Status.UNKNOWN);
-                }
-            });
-            if(addToQueueButton != null) addToQueueButton.setDisable(true);
-        }
-    }
-
-    private void setupPlaybackSliderListeners() {
-        if(playbackSlider != null){
-            playbackSlider.setOnMousePressed(e -> {
-                if(playerService != null && playerService.getCurrentSong() != null) isUserSeeking = true;
-                else e.consume();
-            });
-            playbackSlider.setOnMouseDragged(e -> {
-                if(isUserSeeking && currentTimeLabel != null) currentTimeLabel.setText(formatTime(playbackSlider.getValue()));
-            });
-            playbackSlider.setOnMouseReleased(e -> {
-                if(isUserSeeking && playerService != null && playerService.getCurrentSong() != null) {
-                    playerService.seek((long)playbackSlider.getValue());
-                }
-                isUserSeeking = false;
-            });
-        }
-    }
-
-    // --- UI Setup Methods (Fullscreen View) ---
-    private void setupFullscreenPlaybackSliderListeners() {
-        if (fullscreenPlaybackSlider == null) return;
-        fullscreenPlaybackSlider.setOnMousePressed(event -> {
-            if (playerService != null && playerService.getCurrentSong() != null) {
-                isUserSeekingFullscreen = true;
-            } else {
-                event.consume();
-            }
-        });
-        fullscreenPlaybackSlider.setOnMouseDragged(_event -> {
-            if (isUserSeekingFullscreen && fullscreenCurrentTimeLabel != null) {
-                fullscreenCurrentTimeLabel.setText(formatTime(fullscreenPlaybackSlider.getValue()));
-            }
-        });
-        fullscreenPlaybackSlider.setOnMouseReleased(_event -> {
-            if (isUserSeekingFullscreen && playerService != null && playerService.getCurrentSong() != null) {
-                playerService.seek((long) fullscreenPlaybackSlider.getValue());
-            }
-            isUserSeekingFullscreen = false;
-        });
-    }
-
-    // --- Service Listener Setup ---
-    private void setupPlayerBindingsAndListeners() {
-        if (playerService == null) return;
-
-        playerService.totalDurationProperty().addListener((_obs, _oldVal, newVal) -> Platform.runLater(() -> {
-            double totalMillis = newVal.doubleValue();
-            if (playbackSlider != null) playbackSlider.setMax(totalMillis > 0 ? totalMillis : 0.0);
-            if (totalDurationLabel != null) totalDurationLabel.setText(formatTime(newVal.longValue()));
-            if (primaryStage != null && primaryStage.isFullScreen()) updateFullscreenUIDisplay();
-        }));
-
-        playerService.currentTimeProperty().addListener((_obs, _oldVal, newVal) -> Platform.runLater(() -> {
-            if (playbackSlider != null && !isUserSeeking) playbackSlider.setValue(newVal.doubleValue());
-            if (currentTimeLabel != null) currentTimeLabel.setText(formatTime(newVal.longValue()));
-            
-            if (lyricsService != null) {
-                lyricsService.updateCurrentDisplayLines(newVal.longValue(), this.currentSongLiveOffsetMs);
-            }
-
-            if (primaryStage != null && primaryStage.isFullScreen()) {
-                if (fullscreenPlaybackSlider != null && !isUserSeekingFullscreen) fullscreenPlaybackSlider.setValue(newVal.doubleValue());
-                if (fullscreenCurrentTimeLabel != null) fullscreenCurrentTimeLabel.setText(formatTime(newVal.longValue()));
-                // Fullscreen lyrics update via lyricsService listener + updateFullscreenUIDisplay
-            }
-        }));
-
-        playerService.statusProperty().addListener((_obs, oldStatus, newStatus) -> Platform.runLater(() -> {
-            updateControlsBasedOnStatus(newStatus); // Normal view controls
-            if (primaryStage != null && primaryStage.isFullScreen()) updateFullscreenUIDisplay(); // Fullscreen controls
-
-            if (oldStatus == MediaPlayer.Status.PLAYING && (newStatus == MediaPlayer.Status.STOPPED || newStatus == MediaPlayer.Status.READY)) {
-                playNextSong(true); // Auto-play context
-            }
-        }));
-
-        playerService.currentSongProperty().addListener((_obs, _oldSong, newSong) -> Platform.runLater(() -> {
-            updateNowPlayingDisplay(newSong); // Normal view
-            if (newSong != null) {
-                if (lyricsService != null) {
-                    lyricsService.loadLyricsForSong(newSong);
-                    // Initialize live offset from file for the new song
-                    this.currentSongLiveOffsetMs = (int) lyricsService.getInitialLoadedOffsetMs();
-                    if (lyricOffsetLabel != null) lyricOffsetLabel.setText(this.currentSongLiveOffsetMs + " ms");
-                    // Update lyrics display with this initial offset
-                    lyricsService.updateCurrentDisplayLines(playerService.getCurrentTimeMillis(), this.currentSongLiveOffsetMs);
-                }
-            } else {
-                resetUIForNoActiveSong(); // Clears normal view elements and resets offset
-            }
-            if (primaryStage != null && primaryStage.isFullScreen()) updateFullscreenUIDisplay();
-        }));
-
-        if (playbackSlider != null) playbackSlider.disableProperty().bind(playerService.currentSongProperty().isNull());
-        if (fullscreenPlaybackSlider != null) fullscreenPlaybackSlider.disableProperty().bind(playerService.currentSongProperty().isNull());
-    }
-
-    private void setupLyricsBindingsAndListeners() {
-        if (lyricsService == null) return;
-        lyricsService.displayLinesProperty().addListener((_obs, _oldLines, newLines) -> Platform.runLater(() -> {
-            if(previousLyricLabel != null) previousLyricLabel.setText(getLyricTextOrEmpty(newLines, 0));
-            if(currentLyricLabel != null) currentLyricLabel.setText(getLyricTextOrEmpty(newLines, 1));
-            if(next1LyricLabel != null) next1LyricLabel.setText(getLyricTextOrEmpty(newLines, 2));
-            if(next2LyricLabel != null) next2LyricLabel.setText(getLyricTextOrEmpty(newLines, 3));
-            if (primaryStage != null && primaryStage.isFullScreen()) {
-                updateFullscreenUIDisplay(); // Updates fullscreen lyrics specifically
-            }
-        }));
-    }
-
-    // --- UI Update Methods ---
-    private void updateFullscreenUIDisplay() {
-        if (!Platform.isFxApplicationThread()) {
-            Platform.runLater(this::updateFullscreenUIDisplay);
-            return;
-        }
-        if (playerService == null || queueService == null || lyricsService == null || fullscreenViewRootPane == null || !fullscreenViewRootPane.isVisible()) {
+            System.err.println("MainController ERROR: Core services are null.");
+            showErrorDialog("Critical Error", "Service Initialization Failed", "Core services could not be initialized.");
             return;
         }
 
-        // Top Bar
-        Song nextInQueue = queueService.peekNextSongs(1).stream().findFirst().orElse(null);
-        if(fullscreenNextSongLabel != null) fullscreenNextSongLabel.setText(nextInQueue != null ? "Next: " + nextInQueue.getTitle() : "Next: -");
-        int totalQueueSize = queueService.getSize();
-        int remainingInQueue = (nextInQueue != null && totalQueueSize > 0) ? Math.max(0, totalQueueSize - 1) : totalQueueSize;
-        if(fullscreenQueueCountLabel != null) fullscreenQueueCountLabel.setText("(+" + remainingInQueue + " more)");
+        if (normalViewController != null) {
+            normalViewController.setPlayerService(this.playerService);
+            normalViewController.setLyricsService(this.lyricsService);
+            normalViewController.setQueueService(this.queueService);
+            normalViewController.setMainController(this);
+            normalViewController.setPrimaryStage(this.primaryStage);
+            normalViewController.initializeBindingsAndListeners();
+        } else { System.err.println("MainController WARNING: NormalViewController is null."); }
 
-        // Lyrics
-        List<LyricLine> displayLines = lyricsService.getDisplayLines();
-        if(fullscreenPreviousLyricLabel != null) fullscreenPreviousLyricLabel.setText(getLyricTextOrEmpty(displayLines, 0));
-        if(fullscreenCurrentLyricLabel != null) fullscreenCurrentLyricLabel.setText(getLyricTextOrEmpty(displayLines, 1));
-        if(fullscreenNext1LyricLabel != null) fullscreenNext1LyricLabel.setText(getLyricTextOrEmpty(displayLines, 2));
-        if(fullscreenNext2LyricLabel != null) fullscreenNext2LyricLabel.setText(getLyricTextOrEmpty(displayLines, 3));
+        if (fullscreenViewController != null) {
+            fullscreenViewController.setPlayerService(this.playerService);
+            fullscreenViewController.setLyricsService(this.lyricsService);
+            fullscreenViewController.setQueueService(this.queueService);
+            fullscreenViewController.setMainController(this);
+            fullscreenViewController.setPrimaryStage(this.primaryStage);
+            fullscreenViewController.initializeBindingsAndListeners();
+        } else { System.err.println("MainController WARNING: FullscreenViewController is null."); }
 
-        // Bottom Bar
-        MediaPlayer.Status status = playerService.getStatus();
-        if(fullscreenPlayPauseButton != null) {
-            fullscreenPlayPauseButton.setText(status == MediaPlayer.Status.PLAYING ? "Pause" : "Play");
-            boolean canPlayFullscreen = (status == MediaPlayer.Status.PAUSED || (playerService.getCurrentSong() != null || !queueService.isEmpty()));
-            fullscreenPlayPauseButton.setDisable(!(status == MediaPlayer.Status.PLAYING || canPlayFullscreen));
+        // Apply initial theme based on the default state (e.g., normal view's theme button)
+        ToggleButton initialThemeButton = (normalViewController != null) ? normalViewController.getThemeToggleButton() : 
+                                          ((fullscreenViewController != null) ? fullscreenViewController.getThemeToggleButton() : null);
+        if (initialThemeButton != null) {
+            applyTheme(initialThemeButton.isSelected()); // Applies to rootStackPane
+            // Ensure both buttons reflect this initial state text-wise
+            String initialText = initialThemeButton.isSelected() ? "Light Mode" : "Dark Mode";
+            if (normalViewController != null && normalViewController.getThemeToggleButton() != null) normalViewController.getThemeToggleButton().setText(initialText);
+            if (fullscreenViewController != null && fullscreenViewController.getThemeToggleButton() != null) fullscreenViewController.getThemeToggleButton().setText(initialText);
+
         }
-        if(fullscreenSkipButton != null) fullscreenSkipButton.setDisable(queueService.isEmpty());
-
-        if (playerService.getCurrentSong() != null) {
-            if(fullscreenPlaybackSlider != null) fullscreenPlaybackSlider.setMax(playerService.getTotalDurationMillis());
-            if(fullscreenPlaybackSlider != null && !isUserSeekingFullscreen) fullscreenPlaybackSlider.setValue(playerService.getCurrentTimeMillis());
-            if(fullscreenCurrentTimeLabel != null) fullscreenCurrentTimeLabel.setText(formatTime(playerService.getCurrentTimeMillis()));
-            if(fullscreenTotalDurationLabel != null) fullscreenTotalDurationLabel.setText(formatTime(playerService.getTotalDurationMillis()));
-        } else {
-            if(fullscreenPlaybackSlider != null) { fullscreenPlaybackSlider.setMax(0); fullscreenPlaybackSlider.setValue(0); }
-            if(fullscreenCurrentTimeLabel != null) fullscreenCurrentTimeLabel.setText(formatTime(0));
-            if(fullscreenTotalDurationLabel != null) fullscreenTotalDurationLabel.setText(formatTime(0));
-        }
-    }
-
-    private void resetUIForNoActiveSong() {
-        if (playbackSlider != null) { playbackSlider.setValue(0); playbackSlider.setMax(0); }
-        if (currentTimeLabel != null) currentTimeLabel.setText(formatTime(0.0));
-        if (totalDurationLabel != null) totalDurationLabel.setText(formatTime(0.0));
-        if (lyricsService != null) lyricsService.clearLyrics();
         
-        this.currentSongLiveOffsetMs = 0; // Reset live offset
-        if(lyricOffsetLabel != null) lyricOffsetLabel.setText("0 ms"); // Reset offset display
+        // Update initial UI state for the visible controller
+        Platform.runLater(() -> { // Defer UI updates slightly to ensure all init is done
+            if (primaryStage != null && primaryStage.isFullScreen() && fullscreenViewController != null) {
+                fullscreenViewController.updateUIDisplay();
+            } else if (normalViewController != null) {
+                normalViewController.updateUIDisplay();
+            }
+        });
     }
 
-    private String getLyricTextOrEmpty(List<LyricLine> lines, int index) {
-        if (lines != null && index >= 0 && index < lines.size()) {
-            LyricLine line = lines.get(index);
-            return line != null ? line.getText() : "";
+    // --- Public methods for Sub-Controllers to call ---
+
+    public void setAppFullScreen(boolean fullScreen) {
+        if (primaryStage != null) {
+            primaryStage.setFullScreen(fullScreen);
         }
-        return "";
     }
 
-    private void populateGenreFilter() {
-        if(genreFilterComboBox == null) return;
-        Set<String> genres = SongDAO.getDistinctGenres();
-        ObservableList<String> opts = FXCollections.observableArrayList();
-        opts.add(ALL_GENRES);
-        opts.addAll(genres);
-        genreFilterComboBox.setItems(opts);
-        genreFilterComboBox.setValue(ALL_GENRES);
-    }
-
-    private void updateSongTableView() {
-        if(songTableView == null || searchTextField == null || genreFilterComboBox == null) return;
-        String search = searchTextField.getText();
-        String genre = genreFilterComboBox.getValue();
-        if(ALL_GENRES.equals(genre)) genre = null;
-        songTableView.setItems(FXCollections.observableArrayList(SongDAO.findSongsByCriteria(search, genre)));
+    public void toggleTheme(boolean isDarkMode, ToggleButton sourceButton) {
+        applyTheme(isDarkMode);
+        String buttonText = isDarkMode ? "Light Mode" : "Dark Mode";
+        if (normalViewController != null && normalViewController.getThemeToggleButton() != null) {
+            normalViewController.getThemeToggleButton().setSelected(isDarkMode);
+            normalViewController.getThemeToggleButton().setText(buttonText);
+        }
+        if (fullscreenViewController != null && fullscreenViewController.getThemeToggleButton() != null) {
+            fullscreenViewController.getThemeToggleButton().setSelected(isDarkMode);
+            fullscreenViewController.getThemeToggleButton().setText(buttonText);
+        }
     }
     
-    private void updateControlsBasedOnStatus(MediaPlayer.Status status) {
-        if (playPauseButton == null) return; // Guard against early calls
-        if (status == null) status = MediaPlayer.Status.UNKNOWN;
-
-        boolean playing = status == MediaPlayer.Status.PLAYING;
-        boolean paused = status == MediaPlayer.Status.PAUSED;
-        boolean stoppedOrReady = status == MediaPlayer.Status.STOPPED || status == MediaPlayer.Status.READY;
-        boolean haltedOrUnknown = status == MediaPlayer.Status.HALTED || status == MediaPlayer.Status.UNKNOWN;
-
-        boolean queueCanProvideSong = queueService != null && !queueService.isEmpty();
-        boolean songIsSelected = currentlySelectedSong != null;
-        boolean songIsLoaded = playerService != null && playerService.getCurrentSong() != null;
-
-        boolean canStartPlayback = paused || ((stoppedOrReady || haltedOrUnknown) && (songIsLoaded || songIsSelected || queueCanProvideSong));
-
-        playPauseButton.setText(playing ? "Pause" : "Play");
-        playPauseButton.setDisable(!playing && !canStartPlayback);
-        if(stopButton != null) stopButton.setDisable(!playing && !paused);
-        if(skipButton != null) skipButton.setDisable(!queueCanProvideSong);
-
-        if (stoppedOrReady || haltedOrUnknown) {
-            if (!isUserSeeking && playbackSlider != null && !playbackSlider.isValueChanging()) playbackSlider.setValue(0);
-            if (currentTimeLabel != null) currentTimeLabel.setText(formatTime(0));
-            if (haltedOrUnknown && !songIsLoaded && totalDurationLabel != null) totalDurationLabel.setText(formatTime(0));
+    private void applyTheme(boolean isDarkMode) {
+        if (rootStackPane == null) {
+            System.err.println("Theme application: Root StackPane is null.");
+            return;
         }
-    }
-
-    private void updateQueueDisplay() {
-        if(queueService == null || queueSong1Label == null) return;
-        ObservableList<Song> q = queueService.getQueue();
-        int size = q.size();
-        queueSong1Label.setText("1. " + (size >= 1 ? formatSongForQueue(q.get(0)) : "-"));
-        if(queueSong2Label != null) queueSong2Label.setText("2. " + (size >= 2 ? formatSongForQueue(q.get(1)) : "-"));
-        if(queueSong3Label != null) queueSong3Label.setText("3. " + (size >= 3 ? formatSongForQueue(q.get(2)) : "-"));
-        if(queueCountLabel != null) {
-            int rem = Math.max(0, size - 3);
-            queueCountLabel.setText("(+" + rem + " more)");
-        }
-        if(queueTitledPane != null) queueTitledPane.setExpanded(!q.isEmpty());
-        updateControlsBasedOnStatus(playerService != null ? playerService.getStatus() : MediaPlayer.Status.UNKNOWN);
-    }
-
-    private String formatSongForQueue(Song song) { return song != null ? song.toString() : "-"; }
-
-    private void updateNowPlayingDisplay(Song song) {
-        if(nowPlayingTitleLabel == null || nowPlayingArtistLabel == null) return;
-        if(song != null){
-            nowPlayingTitleLabel.setText(song.getTitle() != null ? song.getTitle() : "Unknown");
-            nowPlayingArtistLabel.setText(song.getArtist() != null ? song.getArtist() : "Unknown");
+        String darkClassName = "dark-mode";
+        ObservableList<String> styleClasses = rootStackPane.getStyleClass();
+        if (isDarkMode) {
+            if (!styleClasses.contains(darkClassName)) styleClasses.add(darkClassName);
         } else {
-            nowPlayingTitleLabel.setText("-");
-            nowPlayingArtistLabel.setText("-");
+            styleClasses.remove(darkClassName);
         }
+        System.out.println("Theme " + (isDarkMode ? "Dark" : "Light") + " applied to rootStackPane.");
     }
 
-    // --- FXML Action Handlers (Normal View) ---
-    @FXML private void handlePlayPause() {
-        if(playerService == null) return;
+
+    public void handlePlayPause() {
+        if (playerService == null) return;
         MediaPlayer.Status s = playerService.getStatus();
-        if(s == MediaPlayer.Status.PLAYING) playerService.pause();
-        else if(s == MediaPlayer.Status.PAUSED) playerService.play();
+        if (s == MediaPlayer.Status.PLAYING) playerService.pause();
+        else if (s == MediaPlayer.Status.PAUSED) playerService.play();
         else {
-            if(this.currentlySelectedSong != null) loadAndPlaySong(this.currentlySelectedSong);
-            else if(queueService != null && !queueService.isEmpty()) playNextSong(false);
-            else updateControlsBasedOnStatus(MediaPlayer.Status.STOPPED);
+            Song songToPlay = null;
+            Song currentSelected = (normalViewController != null) ? normalViewController.getCurrentlySelectedSong() : null;
+            
+            if (currentSelected != null &&
+                (playerService.getCurrentSong() == null || !playerService.getCurrentSong().equals(currentSelected))) {
+                songToPlay = currentSelected;
+            } else if (playerService.getCurrentSong() != null) { // If song loaded (even if stopped), replay it
+                songToPlay = playerService.getCurrentSong();
+            }
+
+            if (songToPlay != null) {
+                loadAndPlaySong(songToPlay);
+            } else if (queueService != null && !queueService.isEmpty()) {
+                playNextSong(false);
+            }
+            // UI state is updated by listeners in sub-controllers
         }
     }
 
-    @FXML private void handleStop() {
-        if(playerService != null) playerService.loadSong(null, false); // Stops and unloads
-        if(queueService != null) queueService.clear();
-        updateControlsBasedOnStatus(playerService != null ? playerService.getStatus() : MediaPlayer.Status.UNKNOWN);
-        updateQueueDisplay();
+    public void handleStop() {
+        if (playerService != null) playerService.loadSong(null, false);
+        if (queueService != null) queueService.clear();
+        // UI state updated by listeners
     }
 
-    @FXML private void handleSkip() {
-        if(playerService != null){
-            playerService.stop(); // Stop current song first
-            playNextSong(false); // Attempt to play next (not auto-play)
+    public void handleSkip() {
+        if (playerService != null) {
+            playerService.stop();
+            playNextSong(false);
         }
     }
+    
+    public void playNextSong(boolean isAutoPlayContext) {
+        if (playerService == null || queueService == null) return;
+        Song songToPlay = null;
+        if (!queueService.isEmpty()) songToPlay = queueService.getNextSong();
 
-    @FXML private void handleAddToQueue() {
-        if(currentlySelectedSong != null && queueService != null){
-            queueService.addSong(currentlySelectedSong);
-            if(songTableView != null) songTableView.getSelectionModel().clearSelection();
-        }
-    }
-
-    @FXML private void handleThemeToggle() {
-        if(themeToggleButton != null && themeToggleButton.getScene() != null) {
-            String darkClassName = "dark-mode";
-            ObservableList<String> styleClasses = themeToggleButton.getScene().getRoot().getStyleClass();
-            if(themeToggleButton.isSelected()){
-                if(!styleClasses.contains(darkClassName)) styleClasses.add(darkClassName);
-                themeToggleButton.setText("Light Mode");
-            } else {
-                styleClasses.remove(darkClassName);
-                themeToggleButton.setText("Dark Mode");
+        if (songToPlay == null) {
+            if (!isAutoPlayContext && normalViewController != null && normalViewController.getCurrentlySelectedSong() != null) {
+                Song currentSelected = normalViewController.getCurrentlySelectedSong();
+                MediaPlayer.Status currentStatus = playerService.getStatus();
+                if (currentStatus != MediaPlayer.Status.PLAYING && currentStatus != MediaPlayer.Status.PAUSED) {
+                    songToPlay = currentSelected;
+                }
             }
         }
-    }
-
-    @FXML private void handleIncreaseOffset(ActionEvent event) { adjustLyricOffset(LYRIC_OFFSET_ADJUSTMENT_STEP); }
-    @FXML private void handleDecreaseOffset(ActionEvent event) { adjustLyricOffset(-LYRIC_OFFSET_ADJUSTMENT_STEP); }
-
-    // --- FXML Action Handlers (Fullscreen View) ---
-    @FXML private void handleFullscreenToggle() { // For normal view button
-        if (primaryStage != null) primaryStage.setFullScreen(fullscreenToggleButton.isSelected());
-    }
-
-    @FXML private void handleExitFullscreenToggle() { // For fullscreen view button
-        if (primaryStage != null) primaryStage.setFullScreen(false);
-        if (fullscreenExitButton != null) fullscreenExitButton.setSelected(false);
-    }
-
-    @FXML private void handleFullscreenPlayPause() {
-        if (playerService == null) return;
-        MediaPlayer.Status status = playerService.getStatus();
-        if (status == MediaPlayer.Status.PLAYING) playerService.pause();
-        else {
-             if (status == MediaPlayer.Status.PAUSED || playerService.getCurrentSong() != null) playerService.play();
-             else if (!queueService.isEmpty()) playNextSong(false); // Play from queue if available
+        if (songToPlay != null) loadAndPlaySong(songToPlay);
+        else if (playerService.getCurrentSong() != null || 
+                 playerService.getStatus() == MediaPlayer.Status.PLAYING || 
+                 playerService.getStatus() == MediaPlayer.Status.PAUSED) {
+            playerService.loadSong(null, false);
         }
     }
 
-    @FXML private void handleFullscreenSkip() { handleSkip(); } // Delegate to normal skip logic
+    public void loadAndPlaySong(Song song) {
+        if (playerService == null) return;
+        if (song == null) {
+            playerService.loadSong(null, false);
+            return;
+        }
+        // LyricsService loading and currentSongLiveOffsetMs initialization
+        // are now triggered by the PlayerService.currentSongProperty listener
+        // in both NormalViewController and FullscreenViewController (via updateUIDisplay)
+        // after PlayerService sets its current song.
+        boolean loadingOk = playerService.loadSong(song, true); // Request auto-play
+        if (!loadingOk) {
+            // PlayerService handles its internal state (e.g. HALTED).
+            // Sub-controllers' status listeners will update their UIs.
+            showErrorDialog("Playback Error", "Could not load audio", 
+                            "Failed to load audio for: " + song.getTitle());
+        }
+    }
 
-    // --- Helper Methods ---
-    private void adjustLyricOffset(int amount) {
-        Song currentSongForOffset = (lyricsService != null) ? lyricsService.getCurrentSong() : null;
+    public void adjustLyricOffset(int amount) {
+        Song currentSongForOffset = (playerService != null) ? playerService.getCurrentSong() : null;
         if (playerService == null || currentSongForOffset == null || lyricsService == null) {
             System.out.println("Cannot adjust offset: No song active or services unavailable.");
             return;
         }
-
         this.currentSongLiveOffsetMs += amount;
-        if(lyricOffsetLabel != null) lyricOffsetLabel.setText(this.currentSongLiveOffsetMs + " ms");
+        
+        // Update offset label in the active view
+        if (normalViewController != null && normalView.isVisible()) {
+            normalViewController.updateLyricOffsetDisplay(this.currentSongLiveOffsetMs);
+        }
+        if (fullscreenViewController != null && fullscreenView.isVisible()) {
+            fullscreenViewController.updateLyricOffsetDisplay(this.currentSongLiveOffsetMs);
+        }
 
         lyricsService.updateCurrentDisplayLines(playerService.getCurrentTimeMillis(), this.currentSongLiveOffsetMs);
 
@@ -566,60 +282,79 @@ public class MainController implements Initializable {
                 LrcWriter.saveOffsetToLrcFile(lyricsFilePath, this.currentSongLiveOffsetMs);
             } catch (IOException e) {
                 System.err.println("Error saving offset to LRC: " + lyricsFilePath + " - " + e.getMessage());
-                Alert alert = new Alert(Alert.AlertType.ERROR, "Could not save lyrics timing: " + e.getMessage());
-                alert.setTitle("Offset Save Error");
-                alert.showAndWait();
+                showErrorDialog("Offset Save Error", "Could not save lyrics timing", e.getMessage());
             }
         } else {
             System.err.println("Cannot save offset: Lyrics file path unavailable for " + currentSongForOffset.getTitle());
         }
     }
     
-    private void playNextSong(boolean isAutoPlayContext) {
-        if(playerService == null) return;
-        Song songToPlay = null;
-        if(queueService != null && !queueService.isEmpty()) songToPlay = queueService.getNextSong();
-
-        if(songToPlay == null){ // Queue was empty or getNextSong returned null
-            if(!isAutoPlayContext && currentlySelectedSong != null){ // And not auto-play, and song selected in library
-                MediaPlayer.Status currentStatus = playerService.getStatus();
-                if(currentStatus != MediaPlayer.Status.PLAYING && currentStatus != MediaPlayer.Status.PAUSED) {
-                    songToPlay = currentlySelectedSong; // Play selected library song
-                }
-            }
+    // Getter for sub-controllers to know the current centrally managed live offset
+    public int getCurrentSongLiveOffsetMs() {
+        return currentSongLiveOffsetMs;
+    }
+    
+    // Method for sub-controllers to set the initial offset when a new song is loaded
+    public void setCurrentSongLiveOffsetMs(int offset) {
+        this.currentSongLiveOffsetMs = offset;
+         // Update offset labels in sub-controllers if they are visible
+        if (normalViewController != null && normalView != null && normalView.isVisible()) {
+            normalViewController.updateLyricOffsetDisplay(this.currentSongLiveOffsetMs);
         }
-
-        if(songToPlay != null) loadAndPlaySong(songToPlay);
-        else if(playerService.getCurrentSong() != null || playerService.getStatus() == MediaPlayer.Status.PLAYING || playerService.getStatus() == MediaPlayer.Status.PAUSED) {
-            playerService.loadSong(null, false); // Effectively stops and unloads if nothing to play
+        if (fullscreenViewController != null && fullscreenView != null && fullscreenView.isVisible()) {
+            fullscreenViewController.updateLyricOffsetDisplay(this.currentSongLiveOffsetMs);
         }
     }
 
-    private void loadAndPlaySong(Song song) {
-        if(playerService == null) return;
-        if(song == null){
-            playerService.loadSong(null, false); // Unload
-            return;
-        }
-        boolean loadingOk = playerService.loadSong(song, true); // Request load and auto-play
-        if(!loadingOk){
-            updateControlsBasedOnStatus(MediaPlayer.Status.HALTED);
-            if(lyricsService != null) lyricsService.clearLyrics();
-            Alert a = new Alert(Alert.AlertType.ERROR, "Failed to load audio for " + song.getTitle());
-            a.setTitle("Playback Error");
-            a.showAndWait();
-        }
-        // Lyrics and offset update are handled by playerService.currentSongProperty listener
+
+    // --- Utility Methods (public for sub-controllers) ---
+
+    /**
+     * Formats a Song object for display in queue labels.
+     * @param song The Song object.
+     * @return A string representation (e.g., "Title - Artist"), or "-" if song is null.
+     */
+    public String formatSongForQueue(Song song) { // Made public
+        if (song == null) return "-";
+        String title = song.getTitle() != null ? song.getTitle() : "Unknown Title";
+        String artist = song.getArtist() != null ? song.getArtist() : "Unknown Artist";
+        return title + " - " + artist;
     }
 
-    private String formatTime(long millis) {
+    public String formatTime(long millis) {
         if (millis < 0 || millis == Long.MAX_VALUE) return "0:00";
-        long secs = TimeUnit.MILLISECONDS.toSeconds(millis);
-        return String.format("%d:%02d", secs / 60, secs % 60);
+        long totalSeconds = TimeUnit.MILLISECONDS.toSeconds(millis);
+        long minutes = totalSeconds / 60;
+        long seconds = totalSeconds % 60;
+        return String.format("%d:%02d", minutes, seconds);
     }
 
-    private String formatTime(double millis) {
+    public String formatTime(double millis) {
         if (Double.isNaN(millis) || Double.isInfinite(millis) || millis < 0) return "0:00";
         return formatTime((long) millis);
+    }
+
+    public String getLyricTextOrEmpty(List<LyricLine> lines, int index) {
+        if (lines != null && index >= 0 && index < lines.size()) {
+            LyricLine line = lines.get(index);
+            return line != null ? line.getText() : "";
+        }
+        return "";
+    }
+    
+    private void showErrorDialog(String title, String header, String content) {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle(title);
+        alert.setHeaderText(header);
+        alert.setContentText(content);
+        alert.getDialogPane().setPrefSize(480, 200); 
+        alert.showAndWait();
+    }
+    
+    // Interface for sub-controllers to expose common methods (like getThemeToggleButton)
+    // This is a simple way to avoid instanceof checks or more complex structures for now.
+    public interface SubController {
+        ToggleButton getThemeToggleButton();
+        // Potentially other common methods like updateUIDisplay, initializeBindingsAndListeners
     }
 }

@@ -8,13 +8,11 @@ import javafx.scene.control.Alert;
 import javafx.fxml.FXMLLoader;
 import java.io.IOException;
 import java.net.URL;
-
 // Imports for services and controller
 import service.PlayerService;
 import service.LyricsService;
 import service.QueueService;
 import controller.MainController;
-
 // Imports for initialization
 import util.ApplicationInitializer;
 
@@ -27,7 +25,6 @@ import util.ApplicationInitializer;
  * Corresponds to overall application setup and UI launch (SRS Section 1.2, FR4.1).
  */
 public class TuneUpApplication extends Application {
-
     // --- Instance Variables ---
     private PlayerService playerService;
     private LyricsService lyricsService;
@@ -46,17 +43,14 @@ public class TuneUpApplication extends Application {
     public void init() throws Exception {
         super.init(); // It's good practice to call the superclass's init method
         System.out.println("TuneUp Application Initializing Backend...");
-
         // Instantiate core services
         this.playerService = new PlayerService();
         this.lyricsService = new LyricsService();
         this.queueService = new QueueService();
         System.out.println("Services instantiated.");
-
         // Perform core application initialization (database, schema, data population)
         // This supports requirements like FR2.1 (Load song metadata from database).
         this.initializationOk = ApplicationInitializer.initializeApplication();
-
         if (this.initializationOk) {
             System.out.println("Core initialization successful (from init method).");
         } else {
@@ -74,23 +68,19 @@ public class TuneUpApplication extends Application {
      * and injecting services into the controller.
      *
      * @param primaryStage The primary stage for this application, onto which
-     *                     the application scene can be set.
+     * the application scene can be set.
      */
     @Override
-    @SuppressWarnings("unused")
     public void start(Stage primaryStage) {
         System.out.println("Starting JavaFX UI...");
-
         // Critical check: If backend initialization failed, show error and exit.
         if (!this.initializationOk) {
             showErrorDialog("Initialization Error", "Application Initialization Failed",
-                            "Could not initialize critical backend components. The application will now exit.");
+                    "Could not initialize critical backend components. The application will now exit.");
             System.exit(1); // Terminate if initialization was unsuccessful
             return;
         }
-
         primaryStage.setTitle("TuneUp Karaoke Application"); // SRS: Application Name
-
         try {
             // --- Load MainView.fxml ---
             // FR4.1: Present functionality through JavaFX GUI.
@@ -98,7 +88,7 @@ public class TuneUpApplication extends Application {
             URL fxmlUrl = getClass().getResource("/view/MainView.fxml");
             if (fxmlUrl == null) {
                 throw new IOException("Cannot find FXML resource: /view/MainView.fxml. " +
-                                      "Please ensure it is in the classpath within the 'view' directory.");
+                "Please ensure it is in the classpath within the 'view' directory.");
             }
             FXMLLoader loader = new FXMLLoader(fxmlUrl);
             Parent root = loader.load(); // Load the FXML hierarchy
@@ -106,14 +96,12 @@ public class TuneUpApplication extends Application {
             // --- Get Controller and Inject Services ---
             MainController controller = loader.getController();
             if (controller != null) {
-                controller.setPrimaryStage(primaryStage); // Pass the stage to the controller
+                controller.setPrimaryStage(primaryStage); // Pass the stage to the MainController
                 controller.setPlayerService(this.playerService);
                 controller.setLyricsService(this.lyricsService);
                 controller.setQueueService(this.queueService);
-
-                // Crucial step: Call a method in the controller to set up bindings and listeners
-                // that depend on the now-injected services.
-                controller.initializeBindingsAndListeners();
+                // Call the new method in MainController to initialize sub-controllers
+                controller.initializeSubControllersAndServices();
             } else {
                 throw new IOException("FXMLLoader failed to create or retrieve the controller instance for MainView.fxml.");
             }
@@ -131,17 +119,17 @@ public class TuneUpApplication extends Application {
             }
 
             primaryStage.setScene(scene);
-            primaryStage.setOnCloseRequest(ignoredEvent -> System.out.println("Main window close request received. Initiating shutdown..."));
+            primaryStage.setOnCloseRequest(event -> System.out.println("Main window close request received. Initiating shutdown..."));
             primaryStage.show();
 
         } catch (IOException e) {
             // Handle fatal errors during FXML loading or controller setup
             handleFatalError("UI Load Error", "Failed to Load User Interface",
-                             "Could not load the main application view (MainView.fxml):\n" + e.getMessage(), e);
+                    "Could not load the main application view (MainView.fxml):\n" + e.getMessage(), e);
         } catch (Exception e) {
             // Catch any other unexpected errors during UI setup
             handleFatalError("UI Setup Error", "Failed to Setup User Interface",
-                             "An unexpected error occurred during UI setup:\n" + e.getMessage(), e);
+                    "An unexpected error occurred during UI setup:\n" + e.getMessage(), e);
         }
     }
 
@@ -156,7 +144,6 @@ public class TuneUpApplication extends Application {
     @Override
     public void stop() throws Exception {
         System.out.println("TuneUp Application Shutting Down (via stop method)...");
-
         // Dispose of services that require cleanup, like PlayerService which holds MediaPlayer resources.
         if (playerService != null) {
             try {
@@ -190,21 +177,19 @@ public class TuneUpApplication extends Application {
      * displaying an error dialog to the user, and then exiting the application.
      * This method assumes it is called from a context where JavaFX UI can be shown (e.g., start method).
      *
-     * @param title   The title for the error dialog window.
-     * @param header  The header text for the error dialog.
+     * @param title The title for the error dialog window.
+     * @param header The header text for the error dialog.
      * @param content The detailed content/message of the error.
-     * @param e       The exception that caused the fatal error (can be null).
+     * @param e The exception that caused the fatal error (can be null).
      */
     private void handleFatalError(String title, String header, String content, Exception e) {
         System.err.println("FATAL ERROR - " + title + ": " + content);
         if (e != null) {
             e.printStackTrace(); // Log the full stack trace for debugging
         }
-
         // Show an error dialog to the user.
         // This is typically called from the start() method, which runs on the FX Application Thread.
         showErrorDialog(title, header, content);
-
         // Terminate the application after a fatal error during startup.
         System.exit(1);
     }
@@ -213,8 +198,8 @@ public class TuneUpApplication extends Application {
      * Helper method to display a simple error dialog to the user.
      * This method must be called on the JavaFX Application Thread.
      *
-     * @param title   The title for the error dialog window.
-     * @param header  The header text for the error dialog.
+     * @param title The title for the error dialog window.
+     * @param header The header text for the error dialog.
      * @param content The detailed content/message of the error.
      */
     private void showErrorDialog(String title, String header, String content) {
