@@ -69,7 +69,7 @@ public class NormalViewController implements Initializable, MainController.SubCo
     @FXML private Button playPauseButton;
     @FXML private Button stopButton;
     @FXML private Button skipButton;
-    @FXML private ToggleButton fullscreenToggleButton;
+    @FXML private Button fullscreenToggleButton;
     @FXML private ToggleButton themeToggleButton;
 
     @FXML private Button increaseOffsetButton;
@@ -385,10 +385,14 @@ public class NormalViewController implements Initializable, MainController.SubCo
     }
 
     @FXML private void handleFullscreenToggle() {
-        if (mainController != null && fullscreenToggleButton != null) {
-            mainController.setAppFullScreen(fullscreenToggleButton.isSelected());
+        if (mainController != null && primaryStage != null) {
+            // Now, this button simply toggles the current state of the stage
+            mainController.setAppFullScreen(!primaryStage.isFullScreen());
         }
+        // No selected state to manage on the button itself.
+        // The text "Toggle Fullscreen" remains static.
     }
+
 
     @FXML private void handleIncreaseOffset(ActionEvent event) { 
         if (mainController != null) mainController.adjustLyricOffset(MainController.LYRIC_OFFSET_ADJUSTMENT_STEP); 

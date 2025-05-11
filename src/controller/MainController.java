@@ -7,6 +7,7 @@ import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.Node;
 import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.layout.StackPane;
 import javafx.scene.media.MediaPlayer; // For MediaPlayer.Status
@@ -68,19 +69,22 @@ public class MainController implements Initializable {
                     if(fullscreenView != null) fullscreenView.setVisible(true);
                     if (fullscreenViewController != null) {
                         syncThemeToggleStates(normalViewController, fullscreenViewController);
+                        // No need to set selected state for fullscreenExitButton (now a Button)
                         fullscreenViewController.updateUIDisplay();
                     }
-                } else {
+                } else { // Exited fullscreen
                     if(fullscreenView != null) fullscreenView.setVisible(false);
                     if(normalView != null) normalView.setVisible(true);
                     if (normalViewController != null) {
                         syncThemeToggleStates(fullscreenViewController, normalViewController);
+                        // No need to set selected state for fullscreenToggleButton (now a Button)
                         normalViewController.updateUIDisplay();
                     }
                 }
             });
         }
     }
+    
 
     private void syncThemeToggleStates(SubController source, SubController target) {
         if (source != null && source.getThemeToggleButton() != null &&

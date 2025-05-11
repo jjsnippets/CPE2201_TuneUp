@@ -131,22 +131,20 @@
                 </HBox>
                 <HBox alignment="CENTER" spacing="15.0" styleClass="control-button-bar">
                     <children>
-                        <!-- Leftmost controls -->
-                        <ToggleButton fx:id="fullscreenToggleButton" mnemonicParsing="false" onAction="#handleFullscreenToggle" text="Fullscreen" />
+                        <!-- Changed ToggleButton to Button for fullscreen -->
+                        <Button fx:id="fullscreenToggleButton" mnemonicParsing="false" onAction="#handleFullscreenToggle" text="Toggle Fullscreen" />
                         <ToggleButton fx:id="themeToggleButton" mnemonicParsing="false" onAction="#handleThemeToggle" text="Dark Mode" />
 
-                        <Region HBox.hgrow="ALWAYS" /> <!-- Spacer -->
+                        <Region HBox.hgrow="ALWAYS" />
 
-                        <!-- Center controls -->
                         <Button fx:id="playPauseButton" mnemonicParsing="false" onAction="#handlePlayPause" prefWidth="80.0" text="Play" />
                         <Button fx:id="skipButton" mnemonicParsing="false" onAction="#handleSkip" text="Skip" />
                         <Button fx:id="stopButton" mnemonicParsing="false" onAction="#handleStop" text="Stop All" />
                         
-                        <Region HBox.hgrow="ALWAYS"/> <!-- Spacer -->
+                        <Region HBox.hgrow="ALWAYS"/>
 
-                        <Region prefWidth="30.0" /> <!-- Gap before rightmost controls -->
+                        <Region prefWidth="30.0" />
 
-                        <!-- Rightmost controls: Lyric Timing Adjustment -->
                         <Button fx:id="increaseOffsetButton" mnemonicParsing="false" onAction="#handleIncreaseOffset" styleClass="lyric-offset-button" text="+" />
                         <Label fx:id="lyricOffsetLabel" styleClass="lyric-offset-label" text="0 ms">
                             <HBox.margin>

@@ -44,7 +44,7 @@ public class FullscreenViewController implements Initializable, MainController.S
     @FXML private Label fullscreenTotalDurationLabel;
     @FXML private Button fullscreenPlayPauseButton;
     @FXML private Button fullscreenSkipButton;
-    @FXML private ToggleButton fullscreenExitButton;
+    @FXML private Button fullscreenExitButton;
     @FXML private ToggleButton fullscreenThemeToggleButton;
     @FXML private Button fullscreenStopButton;
     @FXML private Button fullscreenIncreaseOffsetButton;
@@ -190,10 +190,6 @@ public class FullscreenViewController implements Initializable, MainController.S
         boolean offsetControlsDisabled = !songLoaded;
         if(fullscreenIncreaseOffsetButton != null) fullscreenIncreaseOffsetButton.setDisable(offsetControlsDisabled);
         if(fullscreenDecreaseOffsetButton != null) fullscreenDecreaseOffsetButton.setDisable(offsetControlsDisabled);
-
-        // Exit Fullscreen Button state
-        if (fullscreenExitButton != null) fullscreenExitButton.setSelected(primaryStage.isFullScreen());
-        // Theme toggle state is managed by MainController's syncThemeToggleStates
     }
 
     /**
@@ -232,8 +228,9 @@ public class FullscreenViewController implements Initializable, MainController.S
     // --- FXML Action Handlers ---
     @FXML private void handleExitFullscreenToggle() {
         if (mainController != null) {
-            mainController.setAppFullScreen(false);
+            mainController.setAppFullScreen(false); // This button always exits fullscreen
         }
+        // No selected state to manage on the button itself.
     }
 
     @FXML private void handleFullscreenThemeToggle() {
