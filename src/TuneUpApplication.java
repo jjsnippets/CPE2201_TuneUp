@@ -15,9 +15,8 @@ import service.LyricsService;
 import service.QueueService;
 import controller.MainController;
 
-// Imports for initialization/testing
+// Imports for initialization
 import util.ApplicationInitializer;
-import util.DevelopmentTester;
 
 /**
  * Main application class for the TuneUp Karaoke Application.
@@ -28,10 +27,6 @@ import util.DevelopmentTester;
  * Corresponds to overall application setup and UI launch (SRS Section 1.2, FR4.1).
  */
 public class TuneUpApplication extends Application {
-
-    // --- Constants ---
-    // Flag to enable/disable development tests. Set to false for production releases.
-    private static final boolean RUN_DEVELOPMENT_TESTS = false;
 
     // --- Instance Variables ---
     private PlayerService playerService;
@@ -64,13 +59,6 @@ public class TuneUpApplication extends Application {
 
         if (this.initializationOk) {
             System.out.println("Core initialization successful (from init method).");
-
-            // Conditionally run development tests
-            if (RUN_DEVELOPMENT_TESTS) {
-                System.out.println("Running development tests (from init method)...");
-                DevelopmentTester.runAllDevelopmentTests();
-                System.out.println("Finished development tests.");
-            }
         } else {
             // Log critical failure; the start() method will show an error dialog
             // and prevent UI launch.
