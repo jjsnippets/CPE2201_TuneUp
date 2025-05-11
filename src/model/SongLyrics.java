@@ -5,19 +5,12 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * Represents the complete set of timed lyrics for a single song, including any offset.
- * Encapsulates a sorted list of individual LyricLine objects and the global time offset.
- * Provides methods to query lyrics based on playback time, considering the offset.
- * Fundamental for lyric synchronization features (FR3.4, FR3.5).
+ * Represents the timed lyric lines for a song.
+ * This class purely holds the list of LyricLine objects.
+ * Offset calculations are handled by passing the total effective offset to its methods.
  */
 public class SongLyrics {
-
-    // Unmodifiable list of lyric lines, assumed to be sorted by timestamp.
     private final List<LyricLine> lines;
-
-    // The global offset in milliseconds, parsed from the LRC [offset:] tag.
-    // This value is typically added to each line's timestamp for synchronization.
-    private final long offsetMillis;
 
     // Optional: Store the index of the last found line for slight optimization
     // in sequential lookups. Must be managed carefully if used.
@@ -25,20 +18,12 @@ public class SongLyrics {
 
     /**
      * Constructs a SongLyrics object.
-     *
-     * @param lines        A list of LyricLine objects. The list should ideally be pre-sorted
-     *                     by timestamp. An immutable copy is stored. Can be null or empty.
-     * @param offsetMillis The global time offset in milliseconds (from [offset:] tag).
+     * @param lines A list of LyricLine objects, expected to be sorted. An immutable copy is stored.
      */
-    public SongLyrics(List<LyricLine> lines, long offsetMillis) {
+    public SongLyrics(List<LyricLine> lines) {
         // Store an immutable copy of the list to prevent external modifications.
         // Ensure list is not null.
         this.lines = (lines != null) ? List.copyOf(lines) : Collections.emptyList();
-        this.offsetMillis = offsetMillis;
-        // Note: We assume the input list is already sorted. If not guaranteed, sort here:
-        // this.lines = new ArrayList<>(lines != null ? lines : Collections.emptyList());
-        // Collections.sort(this.lines);
-        // this.lines = Collections.unmodifiableList(this.lines);
     }
 
     // --- Getters ---
@@ -53,32 +38,16 @@ public class SongLyrics {
         return lines;
     }
 
-    /**
-     * Gets the global time offset in milliseconds.
-     * This value should be added to each LyricLine's timestamp to get the
-     * effective display time relative to the audio playback.
-     *
-     * @return The offset in milliseconds.
-     */
-    public long getOffsetMillis() {
-        return offsetMillis;
-    }
-
     // --- Core Functionality ---
 
     /**
-     * Finds the lyric line that should be currently displayed based on the playback time.
-     * This method accounts for the global offset. It returns the *last* line whose
-     * effective timestamp (original timestamp + offset) is less than or equal to
-     * the current playback time.
+     * Finds the lyric line active at a specific time, using a provided total effective offset.
      *
-     * Corresponds to FR3.4 (Synchronize lyrics) and supports FR3.5 (Jump to timestamp).
-     *
-     * @param currentPlaybackMillis The current playback time of the song in milliseconds.
-     * @return The active LyricLine at the given time, or null if no line is active
-     *         (e.g., before the first lyric starts or if lyrics are empty).
+     * @param currentPlaybackMillis The current playback time.
+     * @param totalEffectiveOffset The total offset (from [offset:...] tag, potentially live adjusted) to apply.
+     * @return The active LyricLine, or null.
      */
-    public LyricLine getLineAtTime(long currentPlaybackMillis) {
+    public LyricLine getLineAtTime(long currentPlaybackMillis, long totalEffectiveOffset) {
         if (lines.isEmpty()) {
             return null; // No lyrics to display
         }
@@ -88,7 +57,7 @@ public class SongLyrics {
         // Iterate through the sorted lines
         for (LyricLine line : lines) {
             // Calculate the effective time this line should appear
-            long effectiveTimestamp = line.getTimestampMillis() + this.offsetMillis;
+            long effectiveTimestamp = line.getTimestampMillis() + totalEffectiveOffset;
 
             // If the line's effective time is on or before the current playback time,
             // it's a candidate for the currently active line.
@@ -105,20 +74,20 @@ public class SongLyrics {
     }
 
     /**
-     * Finds the *index* of the lyric line active at a specific time.
-     * Useful for highlighting or scrolling in a UI list view.
+     * Finds the index of the lyric line active at a specific time, using a provided total effective offset.
      *
-     * @param currentPlaybackMillis The current playback time in milliseconds.
-     * @return The index of the active LyricLine in the list, or -1 if none is active.
+     * @param currentPlaybackMillis The current playback time.
+     * @param totalEffectiveOffset The total offset to apply.
+     * @return The index of the active LyricLine, or -1.
      */
-    public int getIndexAtTime(long currentPlaybackMillis) {
+    public int getIndexAtTime(long currentPlaybackMillis, long totalEffectiveOffset) {
          if (lines.isEmpty()) {
             return -1;
         }
         int activeIndex = -1;
         for (int i = 0; i < lines.size(); i++) {
              LyricLine line = lines.get(i);
-             long effectiveTimestamp = line.getTimestampMillis() + this.offsetMillis;
+             long effectiveTimestamp = line.getTimestampMillis() + totalEffectiveOffset;
              if (effectiveTimestamp <= currentPlaybackMillis) {
                  activeIndex = i;
              } else {
@@ -127,7 +96,6 @@ public class SongLyrics {
         }
         return activeIndex;
     }
-
 
     /**
      * Checks if this SongLyrics object contains any lyric lines.
@@ -149,10 +117,7 @@ public class SongLyrics {
 
     @Override
     public String toString() {
-        return "SongLyrics{" +
-               "lines=" + lines.size() + " lines" +
-               ", offsetMillis=" + offsetMillis +
-               '}';
+        return "SongLyrics{" + lines.size() + " lines}";
     }
 
     @Override
@@ -160,12 +125,11 @@ public class SongLyrics {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         SongLyrics that = (SongLyrics) o;
-        return offsetMillis == that.offsetMillis &&
-               Objects.equals(lines, that.lines);
+        return Objects.equals(lines, that.lines);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(lines, offsetMillis);
+        return Objects.hash(lines);
     }
 }

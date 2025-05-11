@@ -30,6 +30,8 @@ import service.QueueService;
 import dao.SongDAO;
 
 // --- Util Imports ---
+import util.LrcWriter; // Ensure this is imported
+import java.io.IOException; // For LrcWriter exception
 import java.net.URL;
 import java.util.List;
 import java.util.ResourceBundle;
@@ -95,7 +97,8 @@ public class MainController implements Initializable {
     // --- State ---
     private Song currentlySelectedSong = null; // Keep track of the selected song from the TableView
     private boolean isUserSeeking = false; // Flag to prevent time updates while user drags slider
-    // private int currentLyricOffsetMillis = 0; // State for user-adjusted lyric offset (will be added later)
+    private int currentSongLiveOffsetMs = 0; // Renamed for clarity: this is the total live offset for the current song.
+    private static final int LYRIC_OFFSET_ADJUSTMENT_STEP = 100; // milliseconds
 
 
     // --- Constants ---
@@ -300,9 +303,7 @@ public class MainController implements Initializable {
             currentTimeLabel.setText(formatTime(newVal.longValue()));
             if (lyricsService != null) {
                 // Pass the current user offset when updating lyrics
-                // For now, this user offset will be 0 until implemented.
-                // We will modify this call later.
-                lyricsService.updateCurrentDisplayLines(newVal.longValue() /*, userAdjustedOffsetMillis */);
+                lyricsService.updateCurrentDisplayLines(newVal.longValue(), this.currentSongLiveOffsetMs);
             }
         }));
 
@@ -325,15 +326,15 @@ public class MainController implements Initializable {
             if (newSong != null) {
                 // A new song has been loaded into PlayerService. Load its lyrics.
                 if (lyricsService != null) {
-                    lyricsService.loadLyricsForSong(newSong); // FR3.1
+                    lyricsService.loadLyricsForSong(newSong); // Load lyrics and initial offset
+                    this.currentSongLiveOffsetMs = (int) lyricsService.getInitialLoadedOffsetMs(); // Get initial offset
+                    lyricOffsetLabel.setText(this.currentSongLiveOffsetMs + " ms");
+                    // Trigger display update with the (potentially new) live offset
+                    lyricsService.updateCurrentDisplayLines(playerService.getCurrentTimeMillis(), this.currentSongLiveOffsetMs);
                 }
-                // Reset user-adjusted lyric offset for the new song (to be implemented)
-                // currentLyricOffsetMillis = 0;
-                // lyricOffsetLabel.setText(currentLyricOffsetMillis + " ms");
-
             } else {
                 // Current song in PlayerService is null (e.g., after stop, end of queue). Reset UI elements.
-                resetUIForNoActiveSong();
+                resetUIForNoActiveSong(); // This will also reset currentSongLiveOffsetMs and its label
             }
         }));
 
@@ -364,8 +365,11 @@ public class MainController implements Initializable {
             totalDurationLabel.setText(formatTime(0.0));
         }
         if (lyricsService != null) {
-            lyricsService.loadLyricsForSong(null); // Clears lyrics in LyricsService
+            lyricsService.clearLyrics(); // Clears lyrics in LyricsService
         }
+        // Reset controller's live offset state and UI for it
+        this.currentSongLiveOffsetMs = 0;
+        if(lyricOffsetLabel != null) lyricOffsetLabel.setText("0 ms");
     }
 
     /**
@@ -686,13 +690,7 @@ public class MainController implements Initializable {
      */
     @FXML
     private void handleIncreaseOffset(ActionEvent event) {
-        System.out.println("Increase Offset button clicked.");
-        // TODO: Implement logic to increase offset and update lyricOffsetLabel and lyric display
-        // This will involve:
-        // 1. Getting a reference to the LyricsService.
-        // 2. Calling a method on LyricsService to increase user-defined offset, or manage offset in MainController.
-        // 3. Updating lyricOffsetLabel.setText(...);
-        // 4. Potentially forcing a re-evaluation of displayed lyrics if playback is active.
+        adjustLyricOffset(LYRIC_OFFSET_ADJUSTMENT_STEP);
     }
 
     /**
@@ -701,11 +699,37 @@ public class MainController implements Initializable {
      */
     @FXML
     private void handleDecreaseOffset(ActionEvent event) {
-        System.out.println("Decrease Offset button clicked.");
-        // TODO: Implement logic to decrease offset and update lyricOffsetLabel and lyric display
-        // Similar steps to handleIncreaseOffset.
+        adjustLyricOffset(-LYRIC_OFFSET_ADJUSTMENT_STEP);
     }
 
+    private void adjustLyricOffset(int amount) {
+        Song currentSongForOffset = (lyricsService != null) ? lyricsService.getCurrentSong() : null;
+        if (playerService == null || currentSongForOffset == null || lyricsService == null) {
+            System.out.println("Cannot adjust offset: No song active or services unavailable.");
+            return;
+        }
+
+        this.currentSongLiveOffsetMs += amount;
+        lyricOffsetLabel.setText(this.currentSongLiveOffsetMs + " ms");
+
+        lyricsService.updateCurrentDisplayLines(playerService.getCurrentTimeMillis(), this.currentSongLiveOffsetMs);
+
+        String lyricsFilePath = currentSongForOffset.getLyricsFilePath();
+        if (lyricsFilePath != null && !lyricsFilePath.isBlank()) {
+            try {
+                // LrcWriter now saves to [offset:...]
+                LrcWriter.saveOffsetToLrcFile(lyricsFilePath, this.currentSongLiveOffsetMs);
+            } catch (IOException e) {
+                System.err.println("Error saving offset to LRC: " + lyricsFilePath + " - " + e.getMessage());
+                // Optional: Show alert to user
+                Alert alert = new Alert(Alert.AlertType.ERROR, "Could not save lyrics timing: " + e.getMessage());
+                alert.setTitle("Offset Save Error");
+                alert.showAndWait();
+            }
+        } else {
+            System.err.println("Cannot save offset: Lyrics file path unavailable for " + currentSongForOffset.getTitle());
+        }
+    }
 
     // --- Helper Methods ---
 

@@ -3,10 +3,10 @@ package service; // Define the package for service classes
 // --- Model Imports ---
 import model.LyricLine;
 import model.Song;
-import model.SongLyrics;
+import model.SongLyrics; // Now takes lines only in constructor
 
 // --- Util Imports ---
-import util.LrcParser;
+import util.LrcParser;   // LrcParseResult now has one offset
 
 // --- Java IO and NIO Imports ---
 import java.io.IOException;
@@ -36,7 +36,8 @@ import javafx.beans.property.ReadOnlyObjectWrapper;
 public class LyricsService {
 
     private Song currentSong;       // The song whose lyrics are currently loaded.
-    private SongLyrics currentLyrics; // The parsed SongLyrics object for the currentSong.
+    private SongLyrics currentLyricsHolder; // Holds only lines
+    private long initialLoadedOffsetMs = 0; // Offset read from [offset:...] in LRC
 
     // --- Observable Property for UI ---
 
@@ -77,6 +78,17 @@ public class LyricsService {
         return displayLinesWrapper.get();
     }
 
+    public Song getCurrentSong() { return currentSong; }
+
+    /**
+     * Gets the offset that was initially loaded from the LRC file's [offset:...] tag
+     * for the currently loaded song.
+     * @return The initial loaded offset in milliseconds.
+     */
+    public long getInitialLoadedOffsetMs() {
+        return initialLoadedOffsetMs;
+    }
+
     // --- Service Methods ---
 
     /**
@@ -92,7 +104,6 @@ public class LyricsService {
      *         Supports FR3.1 and FR3.2 via {@link LrcParser}.
      */
     public boolean loadLyricsForSong(Song song) {
-        // Handle clearing lyrics if a null song is passed
         if (song == null) {
             if (this.currentSong != null) { // Only log/update if actually clearing existing lyrics
                 System.out.println("LyricsService: Clearing lyrics for previous song: " + this.currentSong.getTitle());
@@ -101,70 +112,73 @@ public class LyricsService {
             return true; // Clearing is considered a "successful" operation in this context
         }
 
-        // Avoid redundant loading if the same song's lyrics are already loaded and valid
-        if (song.equals(this.currentSong) && this.currentLyrics != null) {
-            System.out.println("LyricsService: Lyrics for '" + song.getTitle() + "' are already loaded.");
-            // Optionally, re-update display lines for current time if needed,
-            // but typically playerService time updates will handle this.
-            // updateCurrentDisplayLines(playerService.getCurrentTimeMillis()); // Example if needed
+        // Avoid reloading if it's the same song and lyrics are already conceptually loaded.
+        // The actual offset value is managed by MainController live, so
+        // LyricsService doesn't need to reload just for offset changes if lines are same.
+        if (song.equals(this.currentSong) && this.currentLyricsHolder != null) {
+            System.out.println("LyricsService: Lyrics for '" + song.getTitle() + "' conceptually already loaded.");
+            // MainController will refresh display with its current live offset.
             return true;
         }
 
-        System.out.println("LyricsService: Attempting to load lyrics for '" + song.getTitle() + "'...");
+        clearLyricsInternal(); // Reset state for new song
         this.currentSong = song; // Update current song reference *before* attempting to load
-        this.currentLyrics = null; // Reset lyrics state from any previous song
         boolean success = false;
 
         String lyricsPath = song.getLyricsFilePath();
         if (lyricsPath == null || lyricsPath.isBlank()) {
-            System.err.println("LyricsService: Song '" + song.getTitle() + "' has no associated lyrics file path.");
-            updateCurrentDisplayLines(0); // Ensure display is cleared to an empty state
+            System.err.println("LyricsService: No lyrics file path for '" + song.getTitle() + "'.");
+            // If loading failed, state is cleared. MainController will get 0 as initial offset.
+            // updateCurrentDisplayLines(0,0); // Ensure display is cleared to an empty state - This will be handled by MainController
         } else {
             try {
                 // Delegate parsing to LrcParser
-                this.currentLyrics = LrcParser.parseLyrics(lyricsPath);
-                System.out.println("LyricsService: Successfully loaded " +
-                        (this.currentLyrics != null ? this.currentLyrics.getSize() : 0) +
-                        " lines for '" + song.getTitle() +
-                        "' (Offset: " + (this.currentLyrics != null ? this.currentLyrics.getOffsetMillis() : "N/A") + "ms).");
+                LrcParser.LrcParseResult parseResult = LrcParser.parseLyricsAndOffset(lyricsPath);
+                this.currentLyricsHolder = new SongLyrics(parseResult.getLines()); // Store only lines
+                this.initialLoadedOffsetMs = parseResult.getOffsetMillis();    // Store initial offset
+
+                System.out.println("LyricsService: Loaded " + this.currentLyricsHolder.getSize() +
+                                   " lines for '" + song.getTitle() +
+                                   "' (InitialFileOffset: " + this.initialLoadedOffsetMs + "ms).");
                 success = true;
-                updateCurrentDisplayLines(0); // Initialize display for time 0 (shows lines before first timestamp if any)
+                // updateCurrentDisplayLines(0, initialLoadedOffsetMs); // Initialize display for time 0 - This will be handled by MainController
             } catch (IOException | InvalidPathException e) {
-                System.err.println("LyricsService: I/O or Path error parsing lyrics file '" +
-                        lyricsPath + "': " + e.getMessage());
-                this.currentLyrics = null; // Ensure state is null on error
-                updateCurrentDisplayLines(0); // Clear display
+                System.err.println("LyricsService: Error parsing lyrics for '" + lyricsPath + "': " + e.getMessage());
+                clearLyricsInternal(); // Ensure state is null on error
             } catch (Exception e) { // Catch any other unexpected parsing errors
-                System.err.println("LyricsService: Unexpected error parsing lyrics file '" +
-                        lyricsPath + "': " + e.getMessage());
+                System.err.println("LyricsService: Unexpected error parsing lyrics for '" + lyricsPath + "': " + e.getMessage());
                 e.printStackTrace(); // Log stack trace for unexpected errors
-                this.currentLyrics = null;
-                updateCurrentDisplayLines(0); // Clear display
+                clearLyricsInternal();
             }
         }
+        // If loading failed, state is cleared. MainController will get 0 as initial offset.
+        // updateCurrentDisplayLines(0,0); // Clear display - This will be handled by MainController
         return success;
     }
 
     /**
      * Updates the observable list of display lines (previous, current, next, next+1)
-     * based on the provided playback time. This method is typically called by the
+     * based on the provided playback time and the total live offset.
+     * This method is typically called by the
      * {@code MainController} in response to time updates from the {@code PlayerService}.
      *
-     * @param currentPlaybackMillis The current playback time in milliseconds, relative to the start of the audio.
+     * @param currentPlaybackMillis Current playback time.
+     * @param totalLiveOffsetFromController The current total effective offset managed by MainController.
      *                              Corresponds to FR3.4.
      */
-    public void updateCurrentDisplayLines(long currentPlaybackMillis) {
+    public void updateCurrentDisplayLines(long currentPlaybackMillis, long totalLiveOffsetFromController) {
         List<LyricLine> newDisplayLines;
 
-        if (currentLyrics == null || currentLyrics.isEmpty()) {
+        if (currentLyricsHolder == null || currentLyricsHolder.isEmpty()) {
             // If no lyrics are loaded or if the loaded lyrics are empty,
             // the display list should be empty.
             newDisplayLines = Collections.emptyList();
         } else {
+            // Pass the totalLiveOffsetFromController to SongLyrics methods
             // Get the index of the lyric line that is currently active
             // (i.e., the last line whose effective timestamp is <= currentPlaybackMillis)
-            int currentIndex = currentLyrics.getIndexAtTime(currentPlaybackMillis);
-            List<LyricLine> allLines = currentLyrics.getLines();
+            int currentIndex = currentLyricsHolder.getIndexAtTime(currentPlaybackMillis, totalLiveOffsetFromController);
+            List<LyricLine> allLines = currentLyricsHolder.getLines();
 
             // Prepare the list of lines to show (previous, current, next1, next2)
             // This list will always have 4 conceptual slots, filled with LyricLine objects or null.
@@ -185,7 +199,7 @@ public class LyricsService {
         if (!newDisplayLines.equals(displayLinesWrapper.get())) {
             displayLinesWrapper.set(newDisplayLines);
             // For debugging:
-            // System.out.println("LyricsService: Updated display lines at " + currentPlaybackMillis + "ms. Current index: " + (currentLyrics != null ? currentLyrics.getIndexAtTime(currentPlaybackMillis) : -1) );
+            // System.out.println("LyricsService: Updated display lines at " + currentPlaybackMillis + "ms with offset " + totalLiveOffsetFromController + "ms. Current index: " + (currentLyricsHolder != null ? currentLyricsHolder.getIndexAtTime(currentPlaybackMillis, totalLiveOffsetFromController) : -1) );
             // newDisplayLines.forEach(line -> System.out.println("  " + (line != null ? line.getText() : "null")));
         }
     }
@@ -197,7 +211,7 @@ public class LyricsService {
      */
     public void clearLyrics() {
         // Check if there's actually anything to clear to avoid redundant operations/logging
-        if (this.currentSong != null || this.currentLyrics != null || !this.displayLinesWrapper.get().isEmpty()) {
+        if (this.currentSong != null || this.currentLyricsHolder != null || !this.displayLinesWrapper.get().isEmpty()) {
             System.out.println("LyricsService: Clearing current lyrics state.");
             clearLyricsInternal();
         }
@@ -208,7 +222,8 @@ public class LyricsService {
      */
     private void clearLyricsInternal() {
         this.currentSong = null;
-        this.currentLyrics = null;
+        this.currentLyricsHolder = null;
+        this.initialLoadedOffsetMs = 0; // Reset the initial offset
         // Update the observable property to an empty list to clear the UI
         if (!this.displayLinesWrapper.get().isEmpty()) { // Only set if not already empty
             this.displayLinesWrapper.set(Collections.emptyList());
@@ -233,13 +248,13 @@ public class LyricsService {
     }
 
     /**
-     * Gets the currently loaded {@link SongLyrics} object.
+     * Gets the currently loaded {@link SongLyrics} object (which now only holds lines).
      * This method is primarily for internal use or testing purposes.
      *
      * @return The current {@code SongLyrics} object, or {@code null} if no lyrics are loaded
      *         or an error occurred during loading.
      */
-    public SongLyrics getCurrentLyricsObject() {
-        return currentLyrics;
+    public SongLyrics getCurrentLyricsObject() { // Renamed from getCurrentLyrics to avoid conflict if SongLyrics was the direct type
+        return currentLyricsHolder;
     }
 }

@@ -31,7 +31,7 @@ public class TuneUpApplication extends Application {
 
     // --- Constants ---
     // Flag to enable/disable development tests. Set to false for production releases.
-    private static final boolean RUN_DEVELOPMENT_TESTS = true;
+    private static final boolean RUN_DEVELOPMENT_TESTS = false;
 
     // --- Instance Variables ---
     private PlayerService playerService;
