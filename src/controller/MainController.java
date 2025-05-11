@@ -6,20 +6,20 @@ import javafx.beans.binding.Bindings;
 import javafx.collections.FXCollections;
 import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
-import javafx.event.ActionEvent; // Import for ActionEvent
+import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.*; // Import all controls for convenience
 import javafx.scene.control.cell.PropertyValueFactory;
-import javafx.scene.layout.VBox; // Keep VBox
+import javafx.scene.layout.BorderPane; // For root panes
+import javafx.scene.layout.StackPane;  // If StackPane is root in FXML
+import javafx.scene.layout.VBox;
 import javafx.scene.media.MediaPlayer;
-import javafx.stage.Stage; // Import for Stage (will be needed for fullscreen)
-
+import javafx.stage.Stage;
 
 // --- Model Imports ---
 import model.LyricLine;
 import model.Song;
-import model.SongLyrics; // Ensure SongLyrics is imported if LyricsService uses it directly
 
 // --- Service Imports ---
 import service.LyricsService;
@@ -30,7 +30,7 @@ import service.QueueService;
 import dao.SongDAO;
 
 // --- Util Imports ---
-import util.LrcWriter; // Ensure this is imported
+import util.LrcWriter; // For saving offset
 import java.io.IOException; // For LrcWriter exception
 import java.net.URL;
 import java.util.List;
@@ -42,14 +42,13 @@ import java.util.concurrent.TimeUnit;
  * Controller class for the MainView.fxml layout.
  * Handles user interactions, updates the UI based on service states,
  * and coordinates actions between the UI and the backend services.
- * Incorporates fixes for asynchronous loading, Play/Skip logic, and Now Playing display.
- * Corresponds to SRS sections regarding UI interaction and coordination (e.g., FR1.x, FR2.x, FR3.x handling).
+ * Manages normal and fullscreen views, lyric timing adjustments, and playback controls.
  */
 public class MainController implements Initializable {
 
-    // --- FXML Injected Fields ---
+    // --- FXML Injected Fields for Normal View ---
+    @FXML private BorderPane normalViewRootPane;
 
-    // Left Pane (Library/Search)
     @FXML private TextField searchTextField;
     @FXML private ComboBox<String> genreFilterComboBox;
     @FXML private TableView<Song> songTableView;
@@ -57,651 +56,498 @@ public class MainController implements Initializable {
     @FXML private TableColumn<Song, String> artistColumn;
     @FXML private Button addToQueueButton;
 
-    // Right Pane (Queue/Lyrics)
     @FXML private TitledPane queueTitledPane;
     @FXML private Label queueSong1Label;
     @FXML private Label queueSong2Label;
     @FXML private Label queueSong3Label;
     @FXML private Label queueCountLabel;
-    @FXML private VBox lyricsContainer; // VBox that holds the lyric labels
+
+    @FXML private VBox lyricsContainer;
     @FXML private Label previousLyricLabel;
     @FXML private Label currentLyricLabel;
     @FXML private Label next1LyricLabel;
     @FXML private Label next2LyricLabel;
 
-    // Bottom Pane (Controls)
-    @FXML private Label nowPlayingTitleLabel; // Added for Now Playing
-    @FXML private Label nowPlayingArtistLabel; // Added for Now Playing
+    @FXML private Label nowPlayingTitleLabel;
+    @FXML private Label nowPlayingArtistLabel;
     @FXML private Label currentTimeLabel;
     @FXML private Slider playbackSlider;
     @FXML private Label totalDurationLabel;
+
     @FXML private Button playPauseButton;
     @FXML private Button stopButton;
-    @FXML private Button skipButton; // Corrected fx:id in FXML should be "skipButton"
-    @FXML private ToggleButton fullscreenToggleButton;
+    @FXML private Button skipButton;
+    @FXML private ToggleButton fullscreenToggleButton; // In normal view
     @FXML private ToggleButton themeToggleButton;
 
-    // Lyric Offset Controls (NEWLY ADDED FXML FIELDS)
     @FXML private Button increaseOffsetButton;
     @FXML private Label lyricOffsetLabel;
     @FXML private Button decreaseOffsetButton;
+
+    // --- FXML Injected Fields for Fullscreen View ---
+    @FXML private BorderPane fullscreenViewRootPane;
+    @FXML private Label fullscreenNextSongLabel;
+    @FXML private Label fullscreenQueueCountLabel;
+    @FXML private Label fullscreenPreviousLyricLabel;
+    @FXML private Label fullscreenCurrentLyricLabel;
+    @FXML private Label fullscreenNext1LyricLabel;
+    @FXML private Label fullscreenNext2LyricLabel;
+    @FXML private Label fullscreenCurrentTimeLabel;
+    @FXML private Slider fullscreenPlaybackSlider;
+    @FXML private Label fullscreenTotalDurationLabel;
+    @FXML private Button fullscreenPlayPauseButton;
+    @FXML private Button fullscreenSkipButton;
+    @FXML private ToggleButton fullscreenExitButton;
 
 
     // --- Service Dependencies ---
     private PlayerService playerService;
     private LyricsService lyricsService;
     private QueueService queueService;
-    private Stage primaryStage; // To be injected for fullscreen
-
+    private Stage primaryStage;
 
     // --- State ---
-    private Song currentlySelectedSong = null; // Keep track of the selected song from the TableView
-    private boolean isUserSeeking = false; // Flag to prevent time updates while user drags slider
-    private int currentSongLiveOffsetMs = 0; // Renamed for clarity: this is the total live offset for the current song.
-    private static final int LYRIC_OFFSET_ADJUSTMENT_STEP = 100; // milliseconds
-
+    private Song currentlySelectedSong = null;
+    private boolean isUserSeeking = false; // For normal view slider
+    private boolean isUserSeekingFullscreen = false; // For fullscreen view slider
+    private int currentSongLiveOffsetMs = 0; // Live offset for the current song (from [offset:...] in LRC, user-adjustable)
+    private static final int LYRIC_OFFSET_ADJUSTMENT_STEP = 100; // Milliseconds
 
     // --- Constants ---
     private static final String ALL_GENRES = "All Genres";
 
     // Listener for queue changes
     private final ListChangeListener<Song> queueChangeListener = change ->
-            Platform.runLater(this::updateQueueDisplay); // Ensure UI update on FX thread
+            Platform.runLater(() -> {
+                updateQueueDisplay(); // Normal view
+                if (primaryStage != null && primaryStage.isFullScreen()) {
+                    updateFullscreenUIDisplay(); // Update fullscreen queue info
+                }
+            });
 
-
-    // --- Initialization ---
-    /**
-     * Called by FXMLLoader after FXML fields are injected.
-     * Sets up UI components that don't depend on injected services.
-     *
-     * @param location The location used to resolve relative paths for the root object, or null if not known.
-     * @param resources The resources used to localize the root object, or null if not known.
-     */
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         System.out.println("MainController initialized.");
 
+        // Normal view initializations
         setupTableViewColumns();
         addSearchAndFilterListeners();
         addTableViewSelectionListener();
         setupPlaybackSliderListeners();
+        updateNowPlayingDisplay(null);
+        playbackSlider.setDisable(true);
+        if (stopButton != null) stopButton.setText("Stop All");
+        if (lyricOffsetLabel != null) lyricOffsetLabel.setText("0 ms");
 
-        updateNowPlayingDisplay(null); // Initialize Now Playing labels
-        playbackSlider.setDisable(true); // Initially disable slider until a song is loaded
-
-        if (stopButton != null) {
-            // Sets the text for the stop button, which implies clearing all playback and queue.
-            stopButton.setText("Stop All");
-        }
-        // Initialize lyric offset label (will be refined when offset logic is added)
-        if (lyricOffsetLabel != null) {
-            lyricOffsetLabel.setText("0 ms");
-        }
+        // Fullscreen view initializations
+        setupFullscreenPlaybackSliderListeners();
+        if (fullscreenViewRootPane != null) fullscreenViewRootPane.setVisible(false); // Ensure hidden initially
     }
 
     /**
-     * Configures the TableView columns to map to Song properties (title and artist).
-     * Supports FR2.2 (Display song metadata).
-     */
-    private void setupTableViewColumns() {
-        titleColumn.setCellValueFactory(new PropertyValueFactory<>("title"));
-        artistColumn.setCellValueFactory(new PropertyValueFactory<>("artist"));
-    }
-
-    /**
-     * Adds listeners to the search text field and genre combo box.
-     * Triggers `updateSongTableView` when their values change.
-     * Supports FR2.3 (Search by Title/Artist) and FR2.5 (Filter by Genre).
-     */
-    private void addSearchAndFilterListeners() {
-        searchTextField.textProperty().addListener((_obs, _ov, _nv) -> updateSongTableView());
-        genreFilterComboBox.valueProperty().addListener((_obs, _ov, _nv) -> updateSongTableView());
-    }
-
-    /**
-     * Adds a listener to the TableView's selection model to track the selected song.
-     * Updates `currentlySelectedSong` and enables/disables the "Add to Queue" button.
-     * Also updates playback controls if the player is idle.
-     */
-    private void addTableViewSelectionListener() {
-        TableView.TableViewSelectionModel<Song> selectionModel = songTableView.getSelectionModel();
-        selectionModel.setSelectionMode(SelectionMode.SINGLE); // Ensure single selection
-        selectionModel.selectedItemProperty().addListener((_observable, _oldSelection, newSelection) -> {
-            this.currentlySelectedSong = newSelection;
-            boolean songIsSelected = (newSelection != null);
-            System.out.println(songIsSelected ? "Song selected: " + newSelection : "Song selection cleared.");
-            addToQueueButton.setDisable(!songIsSelected); // Enable/disable Add button based on selection
-
-            // Update Play button state ONLY if player is idle (not playing/paused)
-            // This allows the Play button to become enabled if a song is selected while player is stopped.
-            if (playerService == null ||
-                (playerService.getStatus() != MediaPlayer.Status.PLAYING &&
-                 playerService.getStatus() != MediaPlayer.Status.PAUSED)) {
-                updateControlsBasedOnStatus(playerService != null ? playerService.getStatus() : MediaPlayer.Status.UNKNOWN);
-            }
-        });
-        addToQueueButton.setDisable(true); // Initially disable Add to Queue button
-    }
-
-    /**
-     * Adds listeners to the playback slider to handle user seeking.
-     * Supports FR1.7 (Seek functionality).
-     */
-    private void setupPlaybackSliderListeners() {
-        // Flag when user starts dragging/pressing the slider thumb
-        playbackSlider.setOnMousePressed(event -> {
-            if (playerService != null && playerService.getCurrentSong() != null) {
-                isUserSeeking = true;
-            } else {
-                event.consume(); // Prevent interaction if no song is loaded
-            }
-        });
-
-        // Optional: Update time label visually while user is dragging the thumb
-        playbackSlider.setOnMouseDragged(_event -> {
-            if (isUserSeeking) {
-                currentTimeLabel.setText(formatTime(playbackSlider.getValue()));
-            }
-        });
-
-        // Perform seek when user releases the slider thumb (after drag or direct click)
-        playbackSlider.setOnMouseReleased(_event -> {
-            if (isUserSeeking && playerService != null) {
-                if (playerService.getCurrentSong() != null) {
-                    long seekMillis = (long) playbackSlider.getValue();
-                    System.out.println("Slider released - Seeking to " + seekMillis + "ms");
-                    playerService.seek(seekMillis);
-                } else {
-                    System.out.println("Slider released, but no song loaded to seek.");
-                }
-            }
-            isUserSeeking = false; // Reset flag when mouse is released
-        });
-    }
-
-
-    // --- Service Injection & Post-Injection Setup ---
-
-    /**
-     * Injects the primary stage for operations like fullscreen toggle.
+     * Injects the primary stage and sets up listener for fullscreen changes.
      * @param stage The primary application stage.
      */
     public void setPrimaryStage(Stage stage) {
         this.primaryStage = stage;
+        if (this.primaryStage != null) {
+            this.primaryStage.fullScreenProperty().addListener((obs, oldVal, newVal) -> {
+                if (newVal) { // Entered fullscreen
+                    if(normalViewRootPane != null) normalViewRootPane.setVisible(false);
+                    if(fullscreenViewRootPane != null) fullscreenViewRootPane.setVisible(true);
+                    if(fullscreenToggleButton != null) fullscreenToggleButton.setSelected(true);
+                    if (fullscreenExitButton != null) fullscreenExitButton.setSelected(true);
+                    updateFullscreenUIDisplay();
+                } else { // Exited fullscreen
+                    if(fullscreenViewRootPane != null) fullscreenViewRootPane.setVisible(false);
+                    if(normalViewRootPane != null) normalViewRootPane.setVisible(true);
+                    if(fullscreenToggleButton != null) fullscreenToggleButton.setSelected(false);
+                    if (fullscreenExitButton != null) fullscreenExitButton.setSelected(false);
+                }
+            });
+        }
     }
 
-    public void setPlayerService(PlayerService playerService) {
-        this.playerService = playerService;
-        System.out.println("PlayerService injected.");
-    }
-
-    public void setLyricsService(LyricsService lyricsService) {
-        this.lyricsService = lyricsService;
-        System.out.println("LyricsService injected.");
-    }
-
+    // --- Service Injection Methods ---
+    public void setPlayerService(PlayerService playerService) { this.playerService = playerService; }
+    public void setLyricsService(LyricsService lyricsService) { this.lyricsService = lyricsService; }
     public void setQueueService(QueueService queueService) {
-        if (this.queueService != null) { // Remove listener from old service if any
+        if (this.queueService != null) {
             this.queueService.getQueue().removeListener(queueChangeListener);
         }
         this.queueService = queueService;
-        System.out.println("QueueService injected.");
-        if (this.queueService != null) { // Add listener to the new service's queue
+        if (this.queueService != null) {
             this.queueService.getQueue().addListener(queueChangeListener);
-            updateQueueDisplay(); // Initial update of queue display
+            updateQueueDisplay();
         }
     }
 
     /**
-     * Method called after all services are injected (typically from TuneUpApplication).
-     * Sets up bindings, listeners that depend on services, and loads initial data.
+     * Called after all services are injected to set up bindings and load initial data.
      */
     public void initializeBindingsAndListeners() {
-        System.out.println("Initializing service-dependent bindings, listeners, and data...");
-
         if (playerService == null || lyricsService == null || queueService == null) {
-            System.err.println("ERROR: Cannot initialize bindings - one or more services are null!");
-            // Optionally show an error dialog to the user here
+            System.err.println("ERROR: MainController cannot initialize bindings - services missing!");
             return;
         }
-
         populateGenreFilter();
-        updateSongTableView(); // Load initial song list into table
-
+        updateSongTableView();
         setupPlayerBindingsAndListeners();
         setupLyricsBindingsAndListeners();
 
-        // Initialize control states based on initial (likely UNKNOWN) player status
         updateControlsBasedOnStatus(playerService.getStatus());
-        // Initialize Now Playing display based on initial song (likely null)
         updateNowPlayingDisplay(playerService.getCurrentSong());
+        if (primaryStage != null && primaryStage.isFullScreen()) { // Initial update if starts in fullscreen
+            updateFullscreenUIDisplay();
+        }
     }
 
+    // --- UI Setup Methods (Normal View) ---
+    private void setupTableViewColumns() {
+        if(titleColumn != null) titleColumn.setCellValueFactory(new PropertyValueFactory<>("title"));
+        if(artistColumn != null) artistColumn.setCellValueFactory(new PropertyValueFactory<>("artist"));
+    }
 
-    // --- Setup Bindings and Listeners Dependent on Services ---
+    private void addSearchAndFilterListeners() {
+        if(searchTextField != null) searchTextField.textProperty().addListener((_obs, _ov, _nv) -> updateSongTableView());
+        if(genreFilterComboBox != null) genreFilterComboBox.valueProperty().addListener((_obs, _ov, _nv) -> updateSongTableView());
+    }
 
-    /**
-     * Sets up bindings and listeners related to the PlayerService properties
-     * (totalDuration, currentTime, status, currentSong).
-     */
+    private void addTableViewSelectionListener() {
+        if(songTableView != null){
+            TableView.TableViewSelectionModel<Song> sm = songTableView.getSelectionModel();
+            sm.setSelectionMode(SelectionMode.SINGLE);
+            sm.selectedItemProperty().addListener((obs, ov, nv) -> {
+                this.currentlySelectedSong = nv;
+                if(addToQueueButton != null) addToQueueButton.setDisable(nv == null);
+                if(playerService == null || (playerService.getStatus() != MediaPlayer.Status.PLAYING && playerService.getStatus() != MediaPlayer.Status.PAUSED)) {
+                    updateControlsBasedOnStatus(playerService != null ? playerService.getStatus() : MediaPlayer.Status.UNKNOWN);
+                }
+            });
+            if(addToQueueButton != null) addToQueueButton.setDisable(true);
+        }
+    }
+
+    private void setupPlaybackSliderListeners() {
+        if(playbackSlider != null){
+            playbackSlider.setOnMousePressed(e -> {
+                if(playerService != null && playerService.getCurrentSong() != null) isUserSeeking = true;
+                else e.consume();
+            });
+            playbackSlider.setOnMouseDragged(e -> {
+                if(isUserSeeking && currentTimeLabel != null) currentTimeLabel.setText(formatTime(playbackSlider.getValue()));
+            });
+            playbackSlider.setOnMouseReleased(e -> {
+                if(isUserSeeking && playerService != null && playerService.getCurrentSong() != null) {
+                    playerService.seek((long)playbackSlider.getValue());
+                }
+                isUserSeeking = false;
+            });
+        }
+    }
+
+    // --- UI Setup Methods (Fullscreen View) ---
+    private void setupFullscreenPlaybackSliderListeners() {
+        if (fullscreenPlaybackSlider == null) return;
+        fullscreenPlaybackSlider.setOnMousePressed(event -> {
+            if (playerService != null && playerService.getCurrentSong() != null) {
+                isUserSeekingFullscreen = true;
+            } else {
+                event.consume();
+            }
+        });
+        fullscreenPlaybackSlider.setOnMouseDragged(_event -> {
+            if (isUserSeekingFullscreen && fullscreenCurrentTimeLabel != null) {
+                fullscreenCurrentTimeLabel.setText(formatTime(fullscreenPlaybackSlider.getValue()));
+            }
+        });
+        fullscreenPlaybackSlider.setOnMouseReleased(_event -> {
+            if (isUserSeekingFullscreen && playerService != null && playerService.getCurrentSong() != null) {
+                playerService.seek((long) fullscreenPlaybackSlider.getValue());
+            }
+            isUserSeekingFullscreen = false;
+        });
+    }
+
+    // --- Service Listener Setup ---
     private void setupPlayerBindingsAndListeners() {
         if (playerService == null) return;
 
-        // Listener for Total Duration -> Updates Slider Max & Total Duration Label
         playerService.totalDurationProperty().addListener((_obs, _oldVal, newVal) -> Platform.runLater(() -> {
             double totalMillis = newVal.doubleValue();
-            playbackSlider.setMax(totalMillis > 0 ? totalMillis : 0.0);
-            totalDurationLabel.setText(formatTime(newVal.longValue()));
+            if (playbackSlider != null) playbackSlider.setMax(totalMillis > 0 ? totalMillis : 0.0);
+            if (totalDurationLabel != null) totalDurationLabel.setText(formatTime(newVal.longValue()));
+            if (primaryStage != null && primaryStage.isFullScreen()) updateFullscreenUIDisplay();
         }));
 
-        // Listener for Current Time -> Updates Slider Value, Current Time Label & Triggers Lyrics Update
-        // Supports FR1.6 (Display current playback time), FR3.4 (Synchronize lyrics)
         playerService.currentTimeProperty().addListener((_obs, _oldVal, newVal) -> Platform.runLater(() -> {
-            if (!isUserSeeking) { // Only update slider if user isn't dragging it
-                playbackSlider.setValue(newVal.doubleValue());
-            }
-            currentTimeLabel.setText(formatTime(newVal.longValue()));
+            if (playbackSlider != null && !isUserSeeking) playbackSlider.setValue(newVal.doubleValue());
+            if (currentTimeLabel != null) currentTimeLabel.setText(formatTime(newVal.longValue()));
+            
             if (lyricsService != null) {
-                // Pass the current user offset when updating lyrics
                 lyricsService.updateCurrentDisplayLines(newVal.longValue(), this.currentSongLiveOffsetMs);
             }
-        }));
 
-        // Listener for Player Status -> Updates UI Controls & Handles Auto-Play Next
-        playerService.statusProperty().addListener((_obs, oldStatus, newStatus) -> Platform.runLater(() -> {
-            updateControlsBasedOnStatus(newStatus);
-
-            // Auto-Play Next Logic (FR2.10)
-            // If playback stopped/ready after being in PLAYING state, it implies the song finished or was manually stopped.
-            if (oldStatus == MediaPlayer.Status.PLAYING &&
-                (newStatus == MediaPlayer.Status.STOPPED || newStatus == MediaPlayer.Status.READY)) {
-                System.out.println("Playback stopped/ready after playing. Triggering auto playNextSong.");
-                playNextSong(true); // Pass true to indicate auto-play context
+            if (primaryStage != null && primaryStage.isFullScreen()) {
+                if (fullscreenPlaybackSlider != null && !isUserSeekingFullscreen) fullscreenPlaybackSlider.setValue(newVal.doubleValue());
+                if (fullscreenCurrentTimeLabel != null) fullscreenCurrentTimeLabel.setText(formatTime(newVal.longValue()));
+                // Fullscreen lyrics update via lyricsService listener + updateFullscreenUIDisplay
             }
         }));
 
-        // Listener for Current Song in PlayerService -> Updates Now Playing Display & Lyrics
+        playerService.statusProperty().addListener((_obs, oldStatus, newStatus) -> Platform.runLater(() -> {
+            updateControlsBasedOnStatus(newStatus); // Normal view controls
+            if (primaryStage != null && primaryStage.isFullScreen()) updateFullscreenUIDisplay(); // Fullscreen controls
+
+            if (oldStatus == MediaPlayer.Status.PLAYING && (newStatus == MediaPlayer.Status.STOPPED || newStatus == MediaPlayer.Status.READY)) {
+                playNextSong(true); // Auto-play context
+            }
+        }));
+
         playerService.currentSongProperty().addListener((_obs, _oldSong, newSong) -> Platform.runLater(() -> {
-            updateNowPlayingDisplay(newSong); // Update "Now Playing" text labels
+            updateNowPlayingDisplay(newSong); // Normal view
             if (newSong != null) {
-                // A new song has been loaded into PlayerService. Load its lyrics.
                 if (lyricsService != null) {
-                    lyricsService.loadLyricsForSong(newSong); // Load lyrics and initial offset
-                    this.currentSongLiveOffsetMs = (int) lyricsService.getInitialLoadedOffsetMs(); // Get initial offset
-                    lyricOffsetLabel.setText(this.currentSongLiveOffsetMs + " ms");
-                    // Trigger display update with the (potentially new) live offset
+                    lyricsService.loadLyricsForSong(newSong);
+                    // Initialize live offset from file for the new song
+                    this.currentSongLiveOffsetMs = (int) lyricsService.getInitialLoadedOffsetMs();
+                    if (lyricOffsetLabel != null) lyricOffsetLabel.setText(this.currentSongLiveOffsetMs + " ms");
+                    // Update lyrics display with this initial offset
                     lyricsService.updateCurrentDisplayLines(playerService.getCurrentTimeMillis(), this.currentSongLiveOffsetMs);
                 }
             } else {
-                // Current song in PlayerService is null (e.g., after stop, end of queue). Reset UI elements.
-                resetUIForNoActiveSong(); // This will also reset currentSongLiveOffsetMs and its label
+                resetUIForNoActiveSong(); // Clears normal view elements and resets offset
             }
+            if (primaryStage != null && primaryStage.isFullScreen()) updateFullscreenUIDisplay();
         }));
 
-        // Bind slider's disableProperty: slider is disabled if no song is currently loaded in PlayerService.
-        playbackSlider.disableProperty().bind(
-            Bindings.createBooleanBinding(() -> playerService.getCurrentSong() == null,
-                        playerService.currentSongProperty())
-        );
-
-        // Initial UI state update after bindings are set.
-        updateControlsBasedOnStatus(playerService.getStatus());
-        updateNowPlayingDisplay(playerService.getCurrentSong());
+        if (playbackSlider != null) playbackSlider.disableProperty().bind(playerService.currentSongProperty().isNull());
+        if (fullscreenPlaybackSlider != null) fullscreenPlaybackSlider.disableProperty().bind(playerService.currentSongProperty().isNull());
     }
 
-    /**
-     * Helper method to reset UI elements when no song is active in the player.
-     * Clears time labels, slider, and lyrics.
-     */
-    private void resetUIForNoActiveSong() {
-        if (playbackSlider != null) {
-            playbackSlider.setValue(0);
-            playbackSlider.setMax(0); // No duration available
-        }
-        if (currentTimeLabel != null) {
-            currentTimeLabel.setText(formatTime(0.0));
-        }
-        if (totalDurationLabel != null) {
-            totalDurationLabel.setText(formatTime(0.0));
-        }
-        if (lyricsService != null) {
-            lyricsService.clearLyrics(); // Clears lyrics in LyricsService
-        }
-        // Reset controller's live offset state and UI for it
-        this.currentSongLiveOffsetMs = 0;
-        if(lyricOffsetLabel != null) lyricOffsetLabel.setText("0 ms");
-    }
-
-    /**
-     * Sets up bindings and listeners related to the LyricsService (e.g., displayLinesProperty).
-     * Supports FR3.4 (Display synchronized lyrics lines).
-     */
     private void setupLyricsBindingsAndListeners() {
         if (lyricsService == null) return;
-
-        // Listener for LyricsService's displayLinesProperty -> Updates Lyric Labels in UI
         lyricsService.displayLinesProperty().addListener((_obs, _oldLines, newLines) -> Platform.runLater(() -> {
-            previousLyricLabel.setText(getLyricTextOrEmpty(newLines, 0)); // Index 0 = Previous
-            currentLyricLabel.setText(getLyricTextOrEmpty(newLines, 1));  // Index 1 = Current
-            next1LyricLabel.setText(getLyricTextOrEmpty(newLines, 2));    // Index 2 = Next1
-            next2LyricLabel.setText(getLyricTextOrEmpty(newLines, 3));    // Index 3 = Next2
+            if(previousLyricLabel != null) previousLyricLabel.setText(getLyricTextOrEmpty(newLines, 0));
+            if(currentLyricLabel != null) currentLyricLabel.setText(getLyricTextOrEmpty(newLines, 1));
+            if(next1LyricLabel != null) next1LyricLabel.setText(getLyricTextOrEmpty(newLines, 2));
+            if(next2LyricLabel != null) next2LyricLabel.setText(getLyricTextOrEmpty(newLines, 3));
+            if (primaryStage != null && primaryStage.isFullScreen()) {
+                updateFullscreenUIDisplay(); // Updates fullscreen lyrics specifically
+            }
         }));
-
-        // Set initial empty state for lyric labels
-        previousLyricLabel.setText("");
-        currentLyricLabel.setText("");
-        next1LyricLabel.setText("");
-        next2LyricLabel.setText("");
     }
 
-
-    /**
-     * Updates the state (text, enabled/disabled) of playback control buttons
-     * based on the MediaPlayer status and other contextual information (queue state, selected song).
-     *
-     * @param status The current MediaPlayer.Status.
-     */
-    private void updateControlsBasedOnStatus(MediaPlayer.Status status) {
-        if (status == null) { // Defensive null check for status
-            System.err.println("Warning: updateControlsBasedOnStatus received null status. Defaulting controls.");
-            status = MediaPlayer.Status.UNKNOWN;
+    // --- UI Update Methods ---
+    private void updateFullscreenUIDisplay() {
+        if (!Platform.isFxApplicationThread()) {
+            Platform.runLater(this::updateFullscreenUIDisplay);
+            return;
+        }
+        if (playerService == null || queueService == null || lyricsService == null || fullscreenViewRootPane == null || !fullscreenViewRootPane.isVisible()) {
+            return;
         }
 
-        boolean playing = (status == MediaPlayer.Status.PLAYING);
-        boolean paused = (status == MediaPlayer.Status.PAUSED);
-        boolean stoppedOrReady = (status == MediaPlayer.Status.STOPPED || status == MediaPlayer.Status.READY);
-        boolean haltedOrUnknown = (status == MediaPlayer.Status.HALTED || status == MediaPlayer.Status.UNKNOWN);
+        // Top Bar
+        Song nextInQueue = queueService.peekNextSongs(1).stream().findFirst().orElse(null);
+        if(fullscreenNextSongLabel != null) fullscreenNextSongLabel.setText(nextInQueue != null ? "Next: " + nextInQueue.getTitle() : "Next: -");
+        int totalQueueSize = queueService.getSize();
+        int remainingInQueue = (nextInQueue != null && totalQueueSize > 0) ? Math.max(0, totalQueueSize - 1) : totalQueueSize;
+        if(fullscreenQueueCountLabel != null) fullscreenQueueCountLabel.setText("(+" + remainingInQueue + " more)");
 
-        boolean queueCanProvideSong = (queueService != null && !queueService.isEmpty());
-        boolean songIsSelectedInLibrary = (currentlySelectedSong != null);
-        boolean songIsLoadedInPlayer = (playerService != null && playerService.getCurrentSong() != null);
+        // Lyrics
+        List<LyricLine> displayLines = lyricsService.getDisplayLines();
+        if(fullscreenPreviousLyricLabel != null) fullscreenPreviousLyricLabel.setText(getLyricTextOrEmpty(displayLines, 0));
+        if(fullscreenCurrentLyricLabel != null) fullscreenCurrentLyricLabel.setText(getLyricTextOrEmpty(displayLines, 1));
+        if(fullscreenNext1LyricLabel != null) fullscreenNext1LyricLabel.setText(getLyricTextOrEmpty(displayLines, 2));
+        if(fullscreenNext2LyricLabel != null) fullscreenNext2LyricLabel.setText(getLyricTextOrEmpty(displayLines, 3));
 
-        // Determine if the Play button should be enabled
-        boolean canStartPlayback = paused || // Can resume if paused
-                    ((stoppedOrReady || haltedOrUnknown) && // Or if stopped/ready/halted/unknown
-                    (songIsLoadedInPlayer || songIsSelectedInLibrary || queueCanProvideSong)); // AND there's something to play
+        // Bottom Bar
+        MediaPlayer.Status status = playerService.getStatus();
+        if(fullscreenPlayPauseButton != null) {
+            fullscreenPlayPauseButton.setText(status == MediaPlayer.Status.PLAYING ? "Pause" : "Play");
+            boolean canPlayFullscreen = (status == MediaPlayer.Status.PAUSED || (playerService.getCurrentSong() != null || !queueService.isEmpty()));
+            fullscreenPlayPauseButton.setDisable(!(status == MediaPlayer.Status.PLAYING || canPlayFullscreen));
+        }
+        if(fullscreenSkipButton != null) fullscreenSkipButton.setDisable(queueService.isEmpty());
 
-        playPauseButton.setText(playing ? "Pause" : "Play");
-        playPauseButton.setDisable(!playing && !canStartPlayback); // Disable if not playing AND cannot start playback
-
-        stopButton.setDisable(!playing && !paused); // Can only stop if actively playing or paused
-        skipButton.setDisable(!queueCanProvideSong); // Can only skip if queue has songs
-
-        // Visual reset for slider/time if player is stopped, halted, or ready (and not being sought by user)
-        if (stoppedOrReady || haltedOrUnknown) {
-            if (!isUserSeeking && (playbackSlider != null && !playbackSlider.isValueChanging())) {
-                playbackSlider.setValue(0);
-            }
-            if (currentTimeLabel != null) currentTimeLabel.setText(formatTime(0));
-
-            // If player truly stopped/halted AND no song is loaded, reset total duration label.
-            // Max slider value is reset by currentSongProperty listener when song becomes null.
-            if(haltedOrUnknown && !songIsLoadedInPlayer && totalDurationLabel != null) {
-                totalDurationLabel.setText(formatTime(0));
-            }
+        if (playerService.getCurrentSong() != null) {
+            if(fullscreenPlaybackSlider != null) fullscreenPlaybackSlider.setMax(playerService.getTotalDurationMillis());
+            if(fullscreenPlaybackSlider != null && !isUserSeekingFullscreen) fullscreenPlaybackSlider.setValue(playerService.getCurrentTimeMillis());
+            if(fullscreenCurrentTimeLabel != null) fullscreenCurrentTimeLabel.setText(formatTime(playerService.getCurrentTimeMillis()));
+            if(fullscreenTotalDurationLabel != null) fullscreenTotalDurationLabel.setText(formatTime(playerService.getTotalDurationMillis()));
+        } else {
+            if(fullscreenPlaybackSlider != null) { fullscreenPlaybackSlider.setMax(0); fullscreenPlaybackSlider.setValue(0); }
+            if(fullscreenCurrentTimeLabel != null) fullscreenCurrentTimeLabel.setText(formatTime(0));
+            if(fullscreenTotalDurationLabel != null) fullscreenTotalDurationLabel.setText(formatTime(0));
         }
     }
 
-    /**
-     * Helper to safely get text from the LyricLine list or return an empty string.
-     * Used to populate lyric display labels.
-     *
-     * @param lines The list of LyricLine objects (previous, current, next1, next2).
-     * @param index The index of the line to retrieve.
-     * @return The lyric text, or an empty string if the line is null or index is invalid.
-     */
+    private void resetUIForNoActiveSong() {
+        if (playbackSlider != null) { playbackSlider.setValue(0); playbackSlider.setMax(0); }
+        if (currentTimeLabel != null) currentTimeLabel.setText(formatTime(0.0));
+        if (totalDurationLabel != null) totalDurationLabel.setText(formatTime(0.0));
+        if (lyricsService != null) lyricsService.clearLyrics();
+        
+        this.currentSongLiveOffsetMs = 0; // Reset live offset
+        if(lyricOffsetLabel != null) lyricOffsetLabel.setText("0 ms"); // Reset offset display
+    }
+
     private String getLyricTextOrEmpty(List<LyricLine> lines, int index) {
         if (lines != null && index >= 0 && index < lines.size()) {
             LyricLine line = lines.get(index);
-            return (line != null) ? line.getText() : "";
+            return line != null ? line.getText() : "";
         }
         return "";
     }
 
-    // --- Data Loading and UI Update ---
-
-    /**
-     * Populates the genre filter ComboBox with distinct genres from the database.
-     * Supports FR2.5 (Filter by Genre).
-     */
     private void populateGenreFilter() {
-        if (genreFilterComboBox == null) return;
-
-        Set<String> distinctGenres = SongDAO.getDistinctGenres();
-        ObservableList<String> genreOptions = FXCollections.observableArrayList();
-        genreOptions.add(ALL_GENRES); // Default "All Genres" option
-        genreOptions.addAll(distinctGenres); // Add genres from database
-        genreFilterComboBox.setItems(genreOptions);
-        genreFilterComboBox.setValue(ALL_GENRES); // Set default selection
+        if(genreFilterComboBox == null) return;
+        Set<String> genres = SongDAO.getDistinctGenres();
+        ObservableList<String> opts = FXCollections.observableArrayList();
+        opts.add(ALL_GENRES);
+        opts.addAll(genres);
+        genreFilterComboBox.setItems(opts);
+        genreFilterComboBox.setValue(ALL_GENRES);
     }
 
-    /**
-     * Updates the song TableView based on current search text and genre filter criteria.
-     * Fetches data using SongDAO.findSongsByCriteria.
-     * Supports FR2.6 (Update displayed list based on search/filter).
-     */
     private void updateSongTableView() {
-        if (songTableView == null || searchTextField == null || genreFilterComboBox == null) {
-            System.err.println("updateSongTableView called before required UI elements injected.");
-            return;
-        }
-        String searchText = searchTextField.getText();
-        String genreFilter = genreFilterComboBox.getValue();
+        if(songTableView == null || searchTextField == null || genreFilterComboBox == null) return;
+        String search = searchTextField.getText();
+        String genre = genreFilterComboBox.getValue();
+        if(ALL_GENRES.equals(genre)) genre = null;
+        songTableView.setItems(FXCollections.observableArrayList(SongDAO.findSongsByCriteria(search, genre)));
+    }
+    
+    private void updateControlsBasedOnStatus(MediaPlayer.Status status) {
+        if (playPauseButton == null) return; // Guard against early calls
+        if (status == null) status = MediaPlayer.Status.UNKNOWN;
 
-        if (ALL_GENRES.equals(genreFilter)) {
-            genreFilter = null; // Treat "All Genres" as no filter for DAO
-        }
+        boolean playing = status == MediaPlayer.Status.PLAYING;
+        boolean paused = status == MediaPlayer.Status.PAUSED;
+        boolean stoppedOrReady = status == MediaPlayer.Status.STOPPED || status == MediaPlayer.Status.READY;
+        boolean haltedOrUnknown = status == MediaPlayer.Status.HALTED || status == MediaPlayer.Status.UNKNOWN;
 
-        List<Song> filteredSongs = SongDAO.findSongsByCriteria(searchText, genreFilter);
-        songTableView.setItems(FXCollections.observableArrayList(filteredSongs));
-        System.out.println("Updated song table view. Found " + filteredSongs.size() + " songs matching criteria.");
+        boolean queueCanProvideSong = queueService != null && !queueService.isEmpty();
+        boolean songIsSelected = currentlySelectedSong != null;
+        boolean songIsLoaded = playerService != null && playerService.getCurrentSong() != null;
+
+        boolean canStartPlayback = paused || ((stoppedOrReady || haltedOrUnknown) && (songIsLoaded || songIsSelected || queueCanProvideSong));
+
+        playPauseButton.setText(playing ? "Pause" : "Play");
+        playPauseButton.setDisable(!playing && !canStartPlayback);
+        if(stopButton != null) stopButton.setDisable(!playing && !paused);
+        if(skipButton != null) skipButton.setDisable(!queueCanProvideSong);
+
+        if (stoppedOrReady || haltedOrUnknown) {
+            if (!isUserSeeking && playbackSlider != null && !playbackSlider.isValueChanging()) playbackSlider.setValue(0);
+            if (currentTimeLabel != null) currentTimeLabel.setText(formatTime(0));
+            if (haltedOrUnknown && !songIsLoaded && totalDurationLabel != null) totalDurationLabel.setText(formatTime(0));
+        }
     }
 
-    // --- Queue Display Update ---
-
-    /**
-     * Updates the queue display labels (queueSong1Label, etc., and queueCountLabel)
-     * based on the current state of the QueueService.
-     * Supports FR2.9 (Display playback queue).
-     */
     private void updateQueueDisplay() {
-        if (queueService == null || queueSong1Label == null) return;
-
-        ObservableList<Song> currentQueue = queueService.getQueue();
-        int queueSize = currentQueue.size();
-
-        queueSong1Label.setText("1. " + (queueSize >= 1 ? formatSongForQueue(currentQueue.get(0)) : " - "));
-        queueSong2Label.setText("2. " + (queueSize >= 2 ? formatSongForQueue(currentQueue.get(1)) : " - "));
-        queueSong3Label.setText("3. " + (queueSize >= 3 ? formatSongForQueue(currentQueue.get(2)) : " - "));
-
-        int remaining = Math.max(0, queueSize - 3);
-        queueCountLabel.setText((remaining > 0) ? "(+" + remaining + " more)" : "(+0 more)");
-
-        if (queueTitledPane != null) { // Optional: Collapse TitledPane if queue is empty
-            queueTitledPane.setExpanded(!currentQueue.isEmpty());
+        if(queueService == null || queueSong1Label == null) return;
+        ObservableList<Song> q = queueService.getQueue();
+        int size = q.size();
+        queueSong1Label.setText("1. " + (size >= 1 ? formatSongForQueue(q.get(0)) : "-"));
+        if(queueSong2Label != null) queueSong2Label.setText("2. " + (size >= 2 ? formatSongForQueue(q.get(1)) : "-"));
+        if(queueSong3Label != null) queueSong3Label.setText("3. " + (size >= 3 ? formatSongForQueue(q.get(2)) : "-"));
+        if(queueCountLabel != null) {
+            int rem = Math.max(0, size - 3);
+            queueCountLabel.setText("(+" + rem + " more)");
         }
-        // Refresh control states as queue changes can affect Play/Skip button usability
+        if(queueTitledPane != null) queueTitledPane.setExpanded(!q.isEmpty());
         updateControlsBasedOnStatus(playerService != null ? playerService.getStatus() : MediaPlayer.Status.UNKNOWN);
     }
 
-    /**
-     * Formats a Song object for display in the queue labels.
-     * @param song The Song object.
-     * @return A string representation (e.g., "Title - Artist"), or "-" if song is null.
-     */
-    private String formatSongForQueue(Song song) {
-        return (song != null) ? song.toString() : "-"; // Assumes Song.toString() is suitable
-    }
+    private String formatSongForQueue(Song song) { return song != null ? song.toString() : "-"; }
 
-    // --- Now Playing Display Update ---
-    /**
-     * Updates the 'Now Playing' labels (title and artist) in the UI.
-     * Clears labels if the provided song is null.
-     * @param song The currently playing Song, or null if none.
-     */
     private void updateNowPlayingDisplay(Song song) {
-        if (nowPlayingTitleLabel != null && nowPlayingArtistLabel != null) {
-            if (song != null) {
-                nowPlayingTitleLabel.setText(song.getTitle() != null ? song.getTitle() : "Unknown Title");
-                nowPlayingArtistLabel.setText(song.getArtist() != null ? song.getArtist() : "Unknown Artist");
-            } else {
-                nowPlayingTitleLabel.setText("-"); // Default text when nothing is playing
-                nowPlayingArtistLabel.setText("-");
-            }
+        if(nowPlayingTitleLabel == null || nowPlayingArtistLabel == null) return;
+        if(song != null){
+            nowPlayingTitleLabel.setText(song.getTitle() != null ? song.getTitle() : "Unknown");
+            nowPlayingArtistLabel.setText(song.getArtist() != null ? song.getArtist() : "Unknown");
         } else {
-            System.err.println("Warning: Now Playing labels not injected correctly or FXML not updated.");
+            nowPlayingTitleLabel.setText("-");
+            nowPlayingArtistLabel.setText("-");
         }
     }
 
-
-    // --- FXML Action Handlers ---
-
-    /**
-     * Handles the Play/Pause button action.
-     * Implements FR1.3 (Play), FR1.4 (Pause).
-     * If player is stopped/ready:
-     *  - Plays the currently selected song from the library if one is selected.
-     *  - Otherwise, plays the next song from the queue if available.
-     */
-    @FXML
-    private void handlePlayPause() {
-        System.out.println("Play/Pause clicked");
-        if (playerService == null) return;
-
-        MediaPlayer.Status status = playerService.getStatus();
-
-        if (status == MediaPlayer.Status.PLAYING) {
-            playerService.pause(); // FR1.4
-        } else if (status == MediaPlayer.Status.PAUSED) {
-            playerService.play(); // Resume playback
-        } else { // Status is STOPPED, READY, HALTED, UNKNOWN
-            if (this.currentlySelectedSong != null) {
-                // FR1.3: Start playback of the selected song
-                Song songToPlay = this.currentlySelectedSong;
-                System.out.println("PlayPause: Playing selected song from library: " + songToPlay.getTitle());
-                loadAndPlaySong(songToPlay);
-                // Optional: Clear selection after initiating play, or let it persist.
-                // songTableView.getSelectionModel().clearSelection();
-            } else if (queueService != null && !queueService.isEmpty()) {
-                // FR1.3: ...or the next song in the queue if no song is actively selected
-                System.out.println("PlayPause: No song selected in library. Attempting to play next from queue.");
-                playNextSong(false); // This will get the next song from the queue
-            } else {
-                System.out.println("PlayPause: No song selected and queue is empty. Nothing to play.");
-                updateControlsBasedOnStatus(MediaPlayer.Status.STOPPED); // Ensure UI reflects no action taken
-            }
+    // --- FXML Action Handlers (Normal View) ---
+    @FXML private void handlePlayPause() {
+        if(playerService == null) return;
+        MediaPlayer.Status s = playerService.getStatus();
+        if(s == MediaPlayer.Status.PLAYING) playerService.pause();
+        else if(s == MediaPlayer.Status.PAUSED) playerService.play();
+        else {
+            if(this.currentlySelectedSong != null) loadAndPlaySong(this.currentlySelectedSong);
+            else if(queueService != null && !queueService.isEmpty()) playNextSong(false);
+            else updateControlsBasedOnStatus(MediaPlayer.Status.STOPPED);
         }
     }
 
-    /**
-     * Handles the Stop button action. Clears current playback and the entire queue.
-     * This is a "Stop All" functionality.
-     * Implements FR1.5 (Stop - extended to clear queue as per button text "Stop All").
-     */
-    @FXML
-    private void handleStop() {
-        System.out.println("Stop All clicked");
-        if (playerService != null) {
-            // playerService.stop() would stop and reset current song.
-            // loadSong(null, false) effectively stops and unloads the current song.
-            playerService.loadSong(null, false);
-        }
-        if (queueService != null) {
-            queueService.clear(); // Clear the playback queue
-            System.out.println("Queue cleared by Stop All.");
-        }
-        // UI updates are handled by listeners on player status and queue changes.
-        // Explicitly call updateControls to ensure immediate effect if no listeners fire.
+    @FXML private void handleStop() {
+        if(playerService != null) playerService.loadSong(null, false); // Stops and unloads
+        if(queueService != null) queueService.clear();
         updateControlsBasedOnStatus(playerService != null ? playerService.getStatus() : MediaPlayer.Status.UNKNOWN);
-        updateQueueDisplay(); // Update queue display (should show empty)
+        updateQueueDisplay();
     }
 
-    /**
-     * Handles the Skip (Next) button action. Stops the current song and plays the next from the queue.
-     * Implements FR2.7 (Skip to next song).
-     */
-    @FXML
-    private void handleSkip() { // fx:id in FXML should be "skipButton"
-        System.out.println("Skip clicked");
-        if (playerService != null) {
-            playerService.stop(); // Stop current song first (this also resets player state)
-            playNextSong(false); // Attempt to play the next song from the queue (not auto-play context)
+    @FXML private void handleSkip() {
+        if(playerService != null){
+            playerService.stop(); // Stop current song first
+            playNextSong(false); // Attempt to play next (not auto-play)
         }
     }
 
-    /**
-     * Handles the "Add Selected to Queue" button action.
-     * Adds the currently selected song from the library to the playback queue.
-     * Implements FR2.8 (Add song to queue).
-     */
-    @FXML
-    private void handleAddToQueue() {
-        if (currentlySelectedSong != null && queueService != null) {
-            System.out.println("Adding to queue: " + currentlySelectedSong);
-            queueService.addSong(currentlySelectedSong); // QueueService listener will update UI
-            songTableView.getSelectionModel().clearSelection(); // Deselect after adding
-        } else {
-            System.out.println("Add to Queue: No song selected or queue service unavailable.");
+    @FXML private void handleAddToQueue() {
+        if(currentlySelectedSong != null && queueService != null){
+            queueService.addSong(currentlySelectedSong);
+            if(songTableView != null) songTableView.getSelectionModel().clearSelection();
         }
     }
 
-    /**
-     * Handles the Fullscreen toggle button action. (Placeholder)
-     * Intended for FR4.3 (Fullscreen mode).
-     */
-    @FXML
-    private void handleFullscreenToggle() {
-        System.out.println("Fullscreen toggle: " + fullscreenToggleButton.isSelected());
-        if (primaryStage != null) {
-            primaryStage.setFullScreen(fullscreenToggleButton.isSelected());
-        } else {
-            System.err.println("Fullscreen toggle: Primary stage not available.");
-        }
-    }
-
-    /**
-     * Handles the Theme toggle button action. (Placeholder)
-     * Intended for FR4.4 (Theme switching).
-     */
-    @FXML
-    private void handleThemeToggle() {
-        System.out.println("Theme toggle: " + themeToggleButton.isSelected());
-        if (themeToggleButton.getScene() != null) {
-            if (themeToggleButton.isSelected()) {
-                // Apply dark mode
-                themeToggleButton.getScene().getStylesheets().add(getClass().getResource("/view/style.css").toExternalForm()); // Ensure base is there
-                if (themeToggleButton.getScene().getRoot().getStyleClass().stream().noneMatch(sc -> sc.equals("dark-mode"))) {
-                    themeToggleButton.getScene().getRoot().getStyleClass().add("dark-mode");
-                }
+    @FXML private void handleThemeToggle() {
+        if(themeToggleButton != null && themeToggleButton.getScene() != null) {
+            String darkClassName = "dark-mode";
+            ObservableList<String> styleClasses = themeToggleButton.getScene().getRoot().getStyleClass();
+            if(themeToggleButton.isSelected()){
+                if(!styleClasses.contains(darkClassName)) styleClasses.add(darkClassName);
                 themeToggleButton.setText("Light Mode");
             } else {
-                // Remove dark mode
-                themeToggleButton.getScene().getRoot().getStyleClass().remove("dark-mode");
+                styleClasses.remove(darkClassName);
                 themeToggleButton.setText("Dark Mode");
             }
-        } else {
-            System.err.println("Theme toggle: Scene not available.");
         }
     }
 
-    /**
-     * Handles the action for increasing the lyric timing offset. (FR3.6)
-     * @param event The action event.
-     */
-    @FXML
-    private void handleIncreaseOffset(ActionEvent event) {
-        adjustLyricOffset(LYRIC_OFFSET_ADJUSTMENT_STEP);
+    @FXML private void handleIncreaseOffset(ActionEvent event) { adjustLyricOffset(LYRIC_OFFSET_ADJUSTMENT_STEP); }
+    @FXML private void handleDecreaseOffset(ActionEvent event) { adjustLyricOffset(-LYRIC_OFFSET_ADJUSTMENT_STEP); }
+
+    // --- FXML Action Handlers (Fullscreen View) ---
+    @FXML private void handleFullscreenToggle() { // For normal view button
+        if (primaryStage != null) primaryStage.setFullScreen(fullscreenToggleButton.isSelected());
     }
 
-    /**
-     * Handles the action for decreasing the lyric timing offset. (FR3.6)
-     * @param event The action event.
-     */
-    @FXML
-    private void handleDecreaseOffset(ActionEvent event) {
-        adjustLyricOffset(-LYRIC_OFFSET_ADJUSTMENT_STEP);
+    @FXML private void handleExitFullscreenToggle() { // For fullscreen view button
+        if (primaryStage != null) primaryStage.setFullScreen(false);
+        if (fullscreenExitButton != null) fullscreenExitButton.setSelected(false);
     }
 
+    @FXML private void handleFullscreenPlayPause() {
+        if (playerService == null) return;
+        MediaPlayer.Status status = playerService.getStatus();
+        if (status == MediaPlayer.Status.PLAYING) playerService.pause();
+        else {
+             if (status == MediaPlayer.Status.PAUSED || playerService.getCurrentSong() != null) playerService.play();
+             else if (!queueService.isEmpty()) playNextSong(false); // Play from queue if available
+        }
+    }
+
+    @FXML private void handleFullscreenSkip() { handleSkip(); } // Delegate to normal skip logic
+
+    // --- Helper Methods ---
     private void adjustLyricOffset(int amount) {
         Song currentSongForOffset = (lyricsService != null) ? lyricsService.getCurrentSong() : null;
         if (playerService == null || currentSongForOffset == null || lyricsService == null) {
@@ -710,18 +556,16 @@ public class MainController implements Initializable {
         }
 
         this.currentSongLiveOffsetMs += amount;
-        lyricOffsetLabel.setText(this.currentSongLiveOffsetMs + " ms");
+        if(lyricOffsetLabel != null) lyricOffsetLabel.setText(this.currentSongLiveOffsetMs + " ms");
 
         lyricsService.updateCurrentDisplayLines(playerService.getCurrentTimeMillis(), this.currentSongLiveOffsetMs);
 
         String lyricsFilePath = currentSongForOffset.getLyricsFilePath();
         if (lyricsFilePath != null && !lyricsFilePath.isBlank()) {
             try {
-                // LrcWriter now saves to [offset:...]
                 LrcWriter.saveOffsetToLrcFile(lyricsFilePath, this.currentSongLiveOffsetMs);
             } catch (IOException e) {
                 System.err.println("Error saving offset to LRC: " + lyricsFilePath + " - " + e.getMessage());
-                // Optional: Show alert to user
                 Alert alert = new Alert(Alert.AlertType.ERROR, "Could not save lyrics timing: " + e.getMessage());
                 alert.setTitle("Offset Save Error");
                 alert.showAndWait();
@@ -730,133 +574,52 @@ public class MainController implements Initializable {
             System.err.println("Cannot save offset: Lyrics file path unavailable for " + currentSongForOffset.getTitle());
         }
     }
-
-    // --- Helper Methods ---
-
-    /**
-     * Attempts to play the next song based on queue content and selection state.
-     *
-     * @param isAutoPlayTrigger true if called due to a song finishing (auto-play context),
-     *                          false if due to direct user action (e.g., Play, Skip).
-     */
-    private void playNextSong(boolean isAutoPlayTrigger) {
-        if (playerService == null) return;
-
+    
+    private void playNextSong(boolean isAutoPlayContext) {
+        if(playerService == null) return;
         Song songToPlay = null;
+        if(queueService != null && !queueService.isEmpty()) songToPlay = queueService.getNextSong();
 
-        // 1. Try getting the next song from the queue
-        if (queueService != null && !queueService.isEmpty()) {
-            songToPlay = queueService.getNextSong(); // Removes from queue and returns it
-            if (songToPlay != null) {
-                System.out.println("Playing next from queue: " + songToPlay);
-            }
-        }
-
-        // 2. If queue was empty AND this is NOT an auto-play trigger (i.e., user action like initial Play or Skip),
-        //    AND a song is selected in the library, play the selected song.
-        //    If it IS an auto-play trigger, DO NOT play a selected library song if queue is empty.
-        if (songToPlay == null) { // Queue is empty or failed to get song
-            if (!isAutoPlayTrigger && currentlySelectedSong != null) {
-                // Ensure player isn't already playing/paused from a rapid previous action
+        if(songToPlay == null){ // Queue was empty or getNextSong returned null
+            if(!isAutoPlayContext && currentlySelectedSong != null){ // And not auto-play, and song selected in library
                 MediaPlayer.Status currentStatus = playerService.getStatus();
-                if (currentStatus != MediaPlayer.Status.PLAYING && currentStatus != MediaPlayer.Status.PAUSED) {
-                    songToPlay = currentlySelectedSong;
-                    System.out.println("Queue empty, user action initiated play of selected library song: " + songToPlay);
-                } else {
-                     System.out.println("Queue empty, song selected, but player is busy. Not playing selected song now.");
+                if(currentStatus != MediaPlayer.Status.PLAYING && currentStatus != MediaPlayer.Status.PAUSED) {
+                    songToPlay = currentlySelectedSong; // Play selected library song
                 }
-            } else if (isAutoPlayTrigger) {
-                System.out.println("Auto-play: Queue empty. Not playing selected library song as per auto-play behavior.");
-            } else {
-                System.out.println("Queue empty, no selected song, or not an auto-play scenario for selected song.");
             }
         }
 
-        // 3. Load and play the determined song, or ensure player is stopped/cleared if no song found.
-        if (songToPlay != null) {
-            loadAndPlaySong(songToPlay);
-        } else {
-            System.out.println("PlayNextSong: No song available to play. Ensuring player is cleared.");
-            // If a song was playing and player didn't naturally stop/clear, explicitly clear it.
-            if (playerService.getCurrentSong() != null || playerService.getStatus() == MediaPlayer.Status.PLAYING || playerService.getStatus() == MediaPlayer.Status.PAUSED) {
-                playerService.loadSong(null, false); // This stops and unloads.
-            }
+        if(songToPlay != null) loadAndPlaySong(songToPlay);
+        else if(playerService.getCurrentSong() != null || playerService.getStatus() == MediaPlayer.Status.PLAYING || playerService.getStatus() == MediaPlayer.Status.PAUSED) {
+            playerService.loadSong(null, false); // Effectively stops and unloads if nothing to play
         }
     }
 
-
-    /**
-     * Helper method to load a song into PlayerService and LyricsService,
-     * and request playback to start when ready.
-     *
-     * @param song The song to load and play. If null, requests player to unload current song.
-     */
     private void loadAndPlaySong(Song song) {
-        if (playerService == null) {
-            System.err.println("MainController: Cannot load/play song: PlayerService is null.");
-            if (lyricsService != null) lyricsService.loadLyricsForSong(null); // Clear lyrics
-            updateControlsBasedOnStatus(MediaPlayer.Status.HALTED); // Reflect error state
+        if(playerService == null) return;
+        if(song == null){
+            playerService.loadSong(null, false); // Unload
             return;
         }
-
-        if (song == null) {
-            System.out.println("MainController: loadAndPlaySong called with null song. Requesting player to unload.");
-            playerService.loadSong(null, false); // PlayerService handles setting its currentSong to null.
-                                                      // Listeners on currentSongProperty will clear UI (lyrics, slider, etc.).
-            return;
+        boolean loadingOk = playerService.loadSong(song, true); // Request load and auto-play
+        if(!loadingOk){
+            updateControlsBasedOnStatus(MediaPlayer.Status.HALTED);
+            if(lyricsService != null) lyricsService.clearLyrics();
+            Alert a = new Alert(Alert.AlertType.ERROR, "Failed to load audio for " + song.getTitle());
+            a.setTitle("Playback Error");
+            a.showAndWait();
         }
-
-        // Lyrics loading is now primarily driven by the PlayerService.currentSongProperty listener
-        // once PlayerService successfully sets the new song.
-
-        System.out.println("MainController: Requesting player to load and play: " + song.getTitle());
-        boolean loadingInitiated = playerService.loadSong(song, true); // Request PlayerService to load and auto-play
-
-        if (!loadingInitiated) {
-            System.err.println("MainController: PlayerService failed to initiate loading for " + song.getTitle() + ".");
-            if (lyricsService != null) { // Fallback: ensure lyrics are cleared if loading fails fast
-                lyricsService.loadLyricsForSong(null);
-            }
-            // Show an alert for immediate loading failures.
-            Alert alert = new Alert(Alert.AlertType.ERROR);
-            alert.setTitle("Playback Error");
-            alert.setHeaderText("Could not load audio");
-            alert.setContentText("Failed to load the audio file for:\n" +
-                    song.getTitle() + " - " + song.getArtist() +
-                    "\nPlease check file integrity and location.");
-            alert.showAndWait();
-            updateControlsBasedOnStatus(MediaPlayer.Status.HALTED); // Reflect error state in UI
-        }
-        // UI updates (Now Playing, slider, time, lyrics for new song) are driven by listeners
-        // on PlayerService's properties (status, currentTime, totalDuration, currentSong).
+        // Lyrics and offset update are handled by playerService.currentSongProperty listener
     }
 
-
-    /**
-     * Formats time in milliseconds to mm:ss string.
-     * @param millis Time in milliseconds.
-     * @return Formatted string "mm:ss" or "0:00" if input is invalid/negative.
-     */
     private String formatTime(long millis) {
-        if (millis < 0 || Long.MAX_VALUE == millis) { // Check for invalid values like Duration.UNKNOWN
-            return "0:00";
-        }
-        long totalSeconds = TimeUnit.MILLISECONDS.toSeconds(millis);
-        long minutes = totalSeconds / 60;
-        long seconds = totalSeconds % 60;
-        return String.format("%d:%02d", minutes, seconds);
+        if (millis < 0 || millis == Long.MAX_VALUE) return "0:00";
+        long secs = TimeUnit.MILLISECONDS.toSeconds(millis);
+        return String.format("%d:%02d", secs / 60, secs % 60);
     }
 
-    /**
-     * Overload for double, converting to long first. Handles NaN, Infinity.
-     * @param millis Time in milliseconds as double.
-     * @return Formatted string "mm:ss" or "0:00".
-     */
     private String formatTime(double millis) {
-        if (Double.isNaN(millis) || Double.isInfinite(millis) || millis < 0) {
-            return "0:00";
-        }
+        if (Double.isNaN(millis) || Double.isInfinite(millis) || millis < 0) return "0:00";
         return formatTime((long) millis);
     }
-
-} // End of MainController class
+}

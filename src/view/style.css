@@ -241,3 +241,70 @@
 .dark-mode .lyric-offset-label {
     -fx-text-fill: white; /* Dark mode text */
 }
+
+/* --- Fullscreen View Styles --- */
+.fullscreen-root-pane {
+    -fx-background-color: #121212; /* Dark background for fullscreen */
+}
+
+.fullscreen-top-bar {
+    -fx-background-color: #1f1f1f; /* Slightly lighter dark for top bar */
+    -fx-padding: 10px 20px;
+}
+
+.fullscreen-next-song-label,
+.fullscreen-queue-count-label {
+    -fx-font-size: 1.5em; /* 24px if base is 16px */
+    -fx-text-fill: #e0e0e0;
+}
+
+.fullscreen-lyrics-container {
+    -fx-padding: 20px;
+}
+
+.fullscreen-current-lyric {
+    -fx-font-size: 3.5em;  /* Approx 56px if base is 16px, adjust as needed */
+    -fx-font-weight: bold;
+    -fx-text-fill: #4CAF50; /* Green, for example */
+    -fx-padding: 10px;
+}
+
+.fullscreen-other-lyric {
+    -fx-font-size: 2.2em; /* Approx 35px */
+    -fx-text-fill: #b0b0b0; /* Lighter grey */
+    -fx-padding: 5px;
+}
+
+.fullscreen-bottom-bar {
+    -fx-background-color: #1f1f1f;
+    -fx-padding: 10px 20px 20px 20px;
+}
+
+.fullscreen-time-label {
+    -fx-text-fill: #e0e0e0;
+    -fx-font-size: 1.1em;
+}
+
+/* Ensure fullscreen buttons are styled if default is not sufficient */
+.fullscreen-button {
+    -fx-font-size: 1.2em;
+    -fx-padding: 8px 15px;
+    /* Add other styles from your dark-mode .button if needed, or create specific */
+    -fx-text-fill: white;
+    -fx-background-color: #505050;
+    -fx-border-color: #606060;
+}
+.fullscreen-button:hover {
+    -fx-background-color: #606060;
+}
+.fullscreen-button.toggle-button:selected { /* For the exit fullscreen toggle */
+    -fx-background-color: #707070;
+}
+
+/* Style for fullscreen slider (if needed, otherwise inherits from .dark-mode .slider or default) */
+.fullscreen-root-pane .slider .thumb {
+    -fx-background-color: #4CAF50; /* Match current lyric color or theme accent */
+}
+.fullscreen-root-pane .slider .track {
+    -fx-background-color: #505050;
+}

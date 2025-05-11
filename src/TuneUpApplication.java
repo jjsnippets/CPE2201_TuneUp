@@ -77,6 +77,7 @@ public class TuneUpApplication extends Application {
      *                     the application scene can be set.
      */
     @Override
+    @SuppressWarnings("unused")
     public void start(Stage primaryStage) {
         System.out.println("Starting JavaFX UI...");
 
@@ -105,6 +106,7 @@ public class TuneUpApplication extends Application {
             // --- Get Controller and Inject Services ---
             MainController controller = loader.getController();
             if (controller != null) {
+                controller.setPrimaryStage(primaryStage); // Pass the stage to the controller
                 controller.setPlayerService(this.playerService);
                 controller.setLyricsService(this.lyricsService);
                 controller.setQueueService(this.queueService);
@@ -129,7 +131,7 @@ public class TuneUpApplication extends Application {
             }
 
             primaryStage.setScene(scene);
-            primaryStage.setOnCloseRequest(event -> System.out.println("Main window close request received. Initiating shutdown..."));
+            primaryStage.setOnCloseRequest(ignoredEvent -> System.out.println("Main window close request received. Initiating shutdown..."));
             primaryStage.show();
 
         } catch (IOException e) {
