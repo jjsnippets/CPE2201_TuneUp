@@ -49,10 +49,7 @@ public class NormalViewController implements Initializable, MainController.SubCo
     @FXML private Button addToQueueButton;
 
     @FXML private TitledPane queueTitledPane;
-    @FXML private Label queueSong1Label;
-    @FXML private Label queueSong2Label;
-    @FXML private Label queueSong3Label;
-    @FXML private Label queueCountLabel;
+    @FXML private ListView<String> queueListView; // Updated to use ListView for queue display
 
     @FXML private VBox lyricsContainer; // Though not directly manipulated, good to have if styles change
     @FXML private Label previousLyricLabel;
@@ -339,18 +336,25 @@ public class NormalViewController implements Initializable, MainController.SubCo
     }
 
     private void updateQueueDisplay() {
-        if(queueService == null || queueSong1Label == null || mainController == null) return;
-        ObservableList<Song> q = queueService.getQueue();
-        int size = q.size();
-        queueSong1Label.setText("1. " + (size >= 1 ? mainController.formatSongForQueue(q.get(0)) : "-"));
-        if(queueSong2Label != null) queueSong2Label.setText("2. " + (size >= 2 ? mainController.formatSongForQueue(q.get(1)) : "-"));
-        if(queueSong3Label != null) queueSong3Label.setText("3. " + (size >= 3 ? mainController.formatSongForQueue(q.get(2)) : "-"));
-        if(queueCountLabel != null){
-            int rem = Math.max(0, size - 3);
-            queueCountLabel.setText("(+" + rem + " more)");
+        if (queueService == null || queueListView == null || queueTitledPane == null) return;
+
+        ObservableList<Song> currentQueue = queueService.getQueue();
+        if (currentQueue.isEmpty()) {
+            queueListView.setItems(FXCollections.observableArrayList("Queue is empty."));
+            queueTitledPane.setExpanded(false);
+        } else {
+            ObservableList<String> displayableQueue = FXCollections.observableArrayList();
+            for (int i = 0; i < currentQueue.size(); i++) {
+                Song song = currentQueue.get(i);
+                if (song != null) {
+                    displayableQueue.add((i + 1) + ". " + song.getTitle() + " - " + song.getArtist());
+                } else {
+                    displayableQueue.add((i + 1) + ". [Invalid Song Data]");
+                }
+            }
+            queueListView.setItems(displayableQueue);
+            queueTitledPane.setExpanded(true);
         }
-        if(queueTitledPane != null) queueTitledPane.setExpanded(!q.isEmpty());
-        updateControlsBasedOnStatus(playerService != null ? playerService.getStatus() : MediaPlayer.Status.UNKNOWN);
     }
 
     private void updateNowPlayingDisplay(Song song) {
