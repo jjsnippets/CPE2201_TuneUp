@@ -1,10 +1,10 @@
-/* --- General Styles (Light Mode Default) --- */
-.root-pane { /* For normal view */
+/* ========== GENERAL STYLES (LIGHT MODE) ========== */
+.root-pane {
     -fx-font-family: "Segoe UI", Arial, sans-serif;
-    -fx-base: #ECEFF1; /* Light theme base color for controls */
-    -fx-background: #FFFFFF; /* Light theme overall background */
-    -fx-control-inner-background: #FFFFFF; /* Background for text input, lists etc. */
-    -fx-text-fill: #212121; /* Default text color for light theme */
+    -fx-base: #ECEFF1;
+    -fx-background: #FFFFFF;
+    -fx-control-inner-background: #FFFFFF;
+    -fx-text-fill: #212121;
 }
 
 .section-label {
@@ -14,70 +14,84 @@
     -fx-padding: 5 0 2 0;
 }
 
+/* ========== TABLE STYLES (LIGHT MODE) ========== */
 .table-view {
     -fx-border-color: #B0BEC5;
     -fx-border-width: 1px;
     -fx-background-color: #FFFFFF;
 }
+
 .table-view .column-header-background {
     -fx-background-color: #E0E0E0;
 }
+
 .table-view .column-header .label {
     -fx-text-fill: #37474F;
     -fx-font-weight: bold;
 }
+
 .table-view .table-row-cell {
     -fx-background-color: -fx-control-inner-background;
-    -fx-text-fill: -fx-text-background-color; /* Note: -fx-text-background-color is not standard, use -fx-text-fill */
+    -fx-text-fill: -fx-text-background-color;
 }
+
 .table-view .table-row-cell:selected {
     -fx-background-color: #0078D7;
     -fx-text-fill: white;
 }
 
+/* ========== QUEUE STYLES (LIGHT MODE) ========== */
 .queue-titled-pane > .title {
     -fx-background-color: #f5f5f5;
     -fx-border-color: #e0e0e0;
     -fx-border-width: 0 0 1px 0;
 }
+
 .queue-header-label {
     -fx-font-size: 1.05em;
     -fx-font-weight: bold;
     -fx-text-fill: #455A64;
 }
+
 .queue-details {
     -fx-background-color: #fafafa;
-    -fx-padding: 5px; /* Complements FXML padding if used */
+    -fx-padding: 5px;
 }
+
 .queue-item-label {
     -fx-font-size: 0.95em;
     -fx-text-fill: #546E7A;
 }
+
 .queue-count-label {
     -fx-font-size: 0.9em;
     -fx-text-fill: #78909C;
     -fx-padding: 0 10 5 0;
 }
 
-.lyrics-container { /* Normal view lyrics */
+/* ========== LYRICS STYLES (LIGHT MODE) ========== */
+.lyrics-container {
     -fx-background-color: #F5F5F5;
     -fx-padding: 15px;
     -fx-border-color: #E0E0E0;
     -fx-border-width: 1px;
     -fx-border-radius: 3px;
 }
-.current-lyric { /* Normal view current lyric */
+
+.current-lyric {
     -fx-font-size: 1.8em;
     -fx-font-weight: bold;
-    -fx-text-fill: #0D47A1; /* Dark Blue for light mode */
+    -fx-text-fill: #0D47A1;
     -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 5, 0.0, 0, 1);
 }
-.other-lyric { /* Normal view other lyrics */
+
+.other-lyric {
     -fx-font-size: 1.1em;
-    -fx-text-fill: #607D8B; /* Greyish blue for light mode */
+    -fx-text-fill: #607D8B;
     -fx-opacity: 0.8;
 }
 
+/* ========== PLAYER CONTROLS (LIGHT MODE) ========== */
 .time-label {
     -fx-font-size: 0.95em;
     -fx-text-fill: #37474F;
@@ -88,13 +102,15 @@
     -fx-background-color: #ECEFF1;
     -fx-padding: 5px 10px;
     -fx-border-color: #CFD8DC;
-    -fx-border-width: 1 0 1 0; /* Top and bottom border */
+    -fx-border-width: 1 0 1 0;
 }
+
 .now-playing-label-title {
     -fx-font-weight: bold;
     -fx-text-fill: #37474F;
-    -fx-padding: 0 5 0 0; /* Padding to the right */
+    -fx-padding: 0 5 0 0;
 }
+
 .now-playing-label-info {
     -fx-text-fill: #37474F;
 }
@@ -103,55 +119,62 @@
     -fx-background-color: #E0E0E0;
     -fx-padding: 8px;
     -fx-border-color: #BDBDBD;
-    -fx-border-width: 1 0 0 0; /* Top border only */
+    -fx-border-width: 1 0 0 0;
 }
 
+/* ========== BUTTONS & CONTROLS (LIGHT MODE) ========== */
 .button, .toggle-button {
     -fx-background-color: #B0BEC5, linear-gradient(#E0E0E0, #BDBDBD);
     -fx-background-insets: 0, 1;
     -fx-background-radius: 3px;
-    -fx-text-fill: #212121; /* Dark text */
+    -fx-text-fill: #212121;
     -fx-font-weight: bold;
     -fx-padding: 5 15 5 15;
 }
+
 .button:hover, .toggle-button:hover {
-    -fx-base: #CFD8DC; /* Lighter shade on hover */
+    -fx-base: #CFD8DC;
 }
+
 .button:pressed, .toggle-button:selected {
-    -fx-background-color: #90A4AE; /* Darker when pressed/selected */
+    -fx-background-color: #90A4AE;
     -fx-text-fill: white;
 }
 
-.text-field, .combo-box .text-field { /* Target text-field part of combo-box too */
+.text-field, .combo-box .text-field {
     -fx-prompt-text-fill: #9E9E9E;
     -fx-border-color: #B0BEC5;
     -fx-border-width: 1px;
     -fx-border-radius: 3px;
-    -fx-background-color: #FFFFFF; /* Explicit background for text input */
-    -fx-text-fill: #212121; /* Text color for input */
-}
-.combo-box .arrow-button .arrow { /* Style arrow of combo box */
-    -fx-background-color: #37474F;
-}
-.combo-box .list-cell { /* Style items in dropdown */
+    -fx-background-color: #FFFFFF;
     -fx-text-fill: #212121;
 }
+
+.combo-box .arrow-button .arrow {
+    -fx-background-color: #37474F;
+}
+
+.combo-box .list-cell {
+    -fx-text-fill: #212121;
+}
+
 .combo-box .list-cell:hover {
     -fx-background-color: #CFD8DC;
 }
+
 .combo-box .list-cell:filled:selected {
     -fx-background-color: #0078D7;
     -fx-text-fill: white;
 }
 
-
 .slider .track {
     -fx-background-color: #B0BEC5;
     -fx-background-radius: 3px;
 }
+
 .slider .thumb {
-    -fx-background-color: #546E7A; /* Darker thumb */
-    -fx-background-radius: 5px; /* Make it rounder */
+    -fx-background-color: #546E7A;
+    -fx-background-radius: 5px;
 }
 
 .lyric-offset-button {
@@ -160,16 +183,18 @@
     -fx-pref-width: 35px;
     -fx-max-width: 35px;
     -fx-background-color: #f0f0f0;
-    -fx-text-fill: black; /* Text should be black */
+    -fx-text-fill: black;
     -fx-border-color: #d0d0d0;
     -fx-border-width: 1px;
     -fx-border-radius: 3px;
     -fx-background-radius: 3px;
     -fx-padding: 5px;
 }
+
 .lyric-offset-button:hover {
     -fx-background-color: #e0e0e0;
 }
+
 .lyric-offset-label {
     -fx-font-size: 12px;
     -fx-text-fill: black;
@@ -178,153 +203,95 @@
     -fx-alignment: center;
 }
 
-/* --- Dark Mode Styles --- */
-/* Apply to scene root, e.g., <StackPane styleClass="dark-mode"> */
-.dark-mode { /* Define variables or base properties for dark mode */
-    -fx-base: #3c3f41;
-    -fx-background: #2b2b2b;
-    -fx-control-inner-background: #3c3f41; /* For text fields, list backgrounds */
-    -fx-text-fill: #e0e0e0; /* General text color for dark mode */
+/* ========== SCROLLBAR STYLES (LIGHT MODE) ========== */
+.scroll-bar {
+    -fx-background-color: #F0F0F0;
+    -fx-border-color: #E0E0E0;
+    -fx-border-width: 0;
 }
 
-.dark-mode .root-pane { /* For normal view specifically */
-    -fx-background: #2b2b2b;
+.scroll-bar .thumb {
+    -fx-background-color: #B0BEC5;
+    -fx-background-radius: 4px;
 }
 
-.dark-mode .label { /* General label styling in dark mode */
-    -fx-text-fill: #e0e0e0;
+.scroll-bar .thumb:hover {
+    -fx-background-color: #90A4AE;
 }
 
-.dark-mode .section-label {
-    -fx-text-fill: #64B5F6; /* Light blue for dark mode */
+.scroll-bar .thumb:pressed {
+    -fx-background-color: #78909C;
 }
 
-.dark-mode .table-view {
-    -fx-border-color: #455A64;
-    -fx-background-color: #263238; /* Dark background for table */
-}
-.dark-mode .table-view .column-header-background {
-    -fx-background-color: #37474F; /* Darker header for dark mode */
-}
-.dark-mode .table-view .column-header .label {
-    -fx-text-fill: #B0BEC5; /* Lighter text for dark header */
-}
-.dark-mode .table-view .table-row-cell {
-    -fx-background-color: -fx-control-inner-background; /* Uses dark control inner background */
-    -fx-text-fill: #e0e0e0; /* Uses light text (general dark mode text fill) */
-    -fx-border-color: #45494a; /* Cell border for dark mode */
-}
-.dark-mode .table-view .table-row-cell:selected {
-    -fx-background-color: #0277BD; /* Slightly different blue for dark mode selection */
-    -fx-text-fill: white;
+.scroll-bar .increment-button,
+.scroll-bar .decrement-button {
+    -fx-background-color: #F0F0F0;
+    -fx-border-color: #E0E0E0;
+    -fx-border-width: 0;
 }
 
-.dark-mode .queue-titled-pane > .title {
-    -fx-background-color: #37474F; /* Darker background */
-    -fx-border-color: #455A64;
-}
-.dark-mode .queue-titled-pane > .title > .arrow-button .arrow {
-    -fx-background-color: #e0e0e0; /* Keep arrow visible */
-}
-.dark-mode .queue-header-label {
-    -fx-text-fill: #B0BEC5; /* Lighter text */
-}
-.dark-mode .queue-details {
-    -fx-background-color: #263238; /* Dark background */
-}
-.dark-mode .queue-item-label {
-    -fx-text-fill: #90A4AE; /* Lighter text */
-}
-.dark-mode .queue-count-label {
-    -fx-text-fill: #78909C; /* Even lighter grey */
+.scroll-bar .increment-arrow,
+.scroll-bar .decrement-arrow {
+    -fx-background-color: #607D8B;
+    -fx-effect: null;
 }
 
-.dark-mode .lyrics-container { /* Normal view lyrics in dark mode */
-    -fx-background-color: #37474F; /* Dark background */
-    -fx-border-color: #455A64;
-}
-.dark-mode .current-lyric { /* Normal view current lyric in dark mode */
-    -fx-text-fill: #81D4FA; /* Light Blue for dark mode */
-    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.5), 5, 0.0, 0, 1); /* Shadow might need adjustment */
-}
-.dark-mode .other-lyric { /* Normal view other lyrics in dark mode */
-    -fx-text-fill: #B0BEC5; /* Lighter greyish blue for dark mode */
+.scroll-bar .increment-button:hover .increment-arrow,
+.scroll-bar .decrement-button:hover .decrement-arrow {
+    -fx-background-color: #455A64;
 }
 
-.dark-mode .time-label {
-    -fx-text-fill: #E0E0E0; /* Light text */
+.scroll-bar .track {
+    -fx-background-color: #F5F5F5;
 }
 
-.dark-mode .now-playing-bar {
-    -fx-background-color: #263238; /* Darker background */
-    -fx-border-color: #455A64;
-}
-.dark-mode .now-playing-label-title,
-.dark-mode .now-playing-label-info {
-    -fx-text-fill: #E0E0E0; /* Light text */
+.scroll-pane {
+    -fx-background-color: transparent;
+    -fx-border-color: #E0E0E0;
+    -fx-border-width: 0;
 }
 
-.dark-mode .control-button-bar {
-    -fx-background-color: #37474F; /* Darker background */
-    -fx-border-color: #455A64;
+.scroll-pane > .viewport {
+    -fx-background-color: transparent;
 }
 
-.dark-mode .button, .dark-mode .toggle-button {
-    -fx-background-color: #546E7A, linear-gradient(#607D8B, #455A64); /* Darker button colors */
-    -fx-text-fill: #ECEFF1; /* Light text for dark buttons */
-}
-.dark-mode .button:hover, .dark-mode .toggle-button:hover {
-    -fx-base: #78909C; /* Lighter shade on hover for dark mode */
-}
-.dark-mode .button:pressed, .dark-mode .toggle-button:selected {
-    -fx-background-color: #455A64; /* Even darker when pressed/selected */
-    -fx-text-fill: white;
+.table-view .scroll-bar {
+    -fx-background-color: #F5F5F5;
+    -fx-border-width: 0;
+    -fx-pref-width: 12px;
 }
 
-.dark-mode .text-field, .dark-mode .combo-box .text-field {
-    -fx-prompt-text-fill: #78909C; /* Lighter prompt text */
-    -fx-border-color: #546E7A;
-    -fx-background-color: #37474F; /* Dark background for input */
-    -fx-text-fill: #ECEFF1; /* Light text for input */
-}
-.dark-mode .combo-box .arrow-button .arrow {
-    -fx-background-color: #ECEFF1; /* Light arrow on dark button */
-}
-.dark-mode .combo-box .list-cell {
-    -fx-text-fill: #ECEFF1; /* Light text for items in dropdown */
-    -fx-background-color: #3c3f41; /* Dark background for dropdown items */
-}
-.dark-mode .combo-box .list-cell:hover {
-    -fx-background-color: #546E7A;
-}
-.dark-mode .combo-box .list-cell:filled:selected {
-    -fx-background-color: #0277BD;
-    -fx-text-fill: white;
+.table-view .scroll-bar .thumb {
+    -fx-background-color: #B0BEC5;
+    -fx-background-radius: 4px;
 }
 
-.dark-mode .slider .track {
-    -fx-background-color: #455A64; /* Darker track */
-}
-.dark-mode .slider .thumb {
-    -fx-background-color: #90A4AE; /* Lighter thumb for contrast */
-}
-
-.dark-mode .lyric-offset-button {
-    -fx-background-color: #505050;
-    -fx-text-fill: white;
-    -fx-border-color: #606060;
-}
-.dark-mode .lyric-offset-button:hover {
-    -fx-background-color: #606060;
-}
-.dark-mode .lyric-offset-label {
-    -fx-text-fill: white;
+.list-view .scroll-bar {
+    -fx-background-color: #F5F5F5;
+    -fx-border-width: 0;
+    -fx-pref-width: 12px;
 }
 
+.list-view .scroll-bar .thumb {
+    -fx-background-color: #B0BEC5;
+    -fx-background-radius: 4px;
+}
 
-/* --- Fullscreen View Styles (Light Mode Default) --- */
+.scroll-pane .corner,
+.table-view .corner,
+.list-view .corner {
+    -fx-background-color: #F2F2F2;
+}
+
+.virtual-flow,
+.table-view .virtual-flow,
+.list-view .virtual-flow {
+    -fx-background-color: #FFFFFF;
+}
+
+/* ========== FULLSCREEN STYLES (LIGHT MODE) ========== */
 .fullscreen-root-pane {
-    -fx-background-color: #F0F0F0; /* Default light background for fullscreen */
+    -fx-background-color: #F0F0F0;
 }
 
 .fullscreen-top-bar {
@@ -335,7 +302,7 @@
 .fullscreen-next-song-label,
 .fullscreen-queue-count-label {
     -fx-font-size: 1.5em;
-    -fx-text-fill: #333333; /* Dark text for light fullscreen background */
+    -fx-text-fill: #333333;
 }
 
 .fullscreen-lyrics-container {
@@ -345,13 +312,13 @@
 .fullscreen-current-lyric {
     -fx-font-size: 3.5em;
     -fx-font-weight: bold;
-    -fx-text-fill: #0066CC; /* Example: Blue for light mode fullscreen */
+    -fx-text-fill: #0D47A1;
     -fx-padding: 10px;
 }
 
 .fullscreen-other-lyric {
     -fx-font-size: 2.2em;
-    -fx-text-fill: #555555; /* Darker grey for light mode fullscreen */
+    -fx-text-fill: #607D8B;
     -fx-padding: 5px;
 }
 
@@ -360,37 +327,471 @@
     -fx-padding: 10px 20px 20px 20px;
 }
 
-.fullscreen-time-label { /* Inherits from .time-label, but can be overridden */
-    -fx-text-fill: #333333; /* Ensure dark text for light fullscreen */
-    -fx-font-size: 1.1em; /* Slightly larger for fullscreen if desired */
+.fullscreen-time-label {
+    -fx-text-fill: #37474F;
+    -fx-font-size: 1.1em;
 }
 
 .fullscreen-button {
     -fx-font-size: 1.2em;
     -fx-padding: 8px 15px;
-    /* Light theme appearance for fullscreen buttons */
     -fx-text-fill: #212121;
-    -fx-background-color: #D0D0D0;
+    -fx-background-color: #B0BEC5, linear-gradient(#E0E0E0, #BDBDBD);
     -fx-border-color: #B0B0B0;
+    -fx-background-insets: 0, 1;
+    -fx-background-radius: 3px;
 }
+
 .fullscreen-button:hover {
-    -fx-background-color: #C0C0C0;
-}
-.fullscreen-button.toggle-button:selected { /* For Exit Fullscreen button */
-    -fx-background-color: #B0B0B0;
+    -fx-background-color: #CFD8DC;
 }
 
-/* Slider in fullscreen light mode */
-.fullscreen-root-pane .slider .thumb { /* No .dark-mode prefix = light mode */
-    -fx-background-color: #0078D7; /* Default light mode accent */
+.fullscreen-button.toggle-button:selected, 
+.fullscreen-button:pressed {
+    -fx-background-color: #90A4AE;
+    -fx-text-fill: white;
 }
+
+.fullscreen-root-pane .slider .thumb {
+    -fx-background-color: #546E7A;
+}
+
 .fullscreen-root-pane .slider .track {
-    -fx-background-color: #CCCCCC;
+    -fx-background-color: #B0BEC5;
 }
 
+/* ========== GENERAL STYLES (DARK MODE) ========== */
+.dark-mode {
+    -fx-base: #3c3f41;
+    -fx-background: #2b2b2b;
+    -fx-control-inner-background: #3c3f41;
+    -fx-text-fill: #e0e0e0;
+}
 
-/* --- Dark Mode Overrides for Fullscreen --- */
-/* These apply when .dark-mode is on the scene root and .fullscreen-root-pane is visible */
+.dark-mode .root-pane {
+    -fx-background: #2b2b2b;
+}
+
+.dark-mode .label {
+    -fx-text-fill: #e0e0e0;
+}
+
+.dark-mode .section-label {
+    -fx-text-fill: #64B5F6;
+}
+
+.dark-mode .split-pane {
+    -fx-background-color: #2b2b2b;
+    -fx-border-color: #2b2b2b;
+}
+
+.dark-mode .split-pane > .split-pane-divider {
+    -fx-background-color: #444444;
+    -fx-border-color: #444444;
+}
+
+.dark-mode .anchor-pane {
+    -fx-background-color: #2b2b2b;
+    -fx-border-color: #2b2b2b;
+}
+
+/* ========== TABLE STYLES (DARK MODE) ========== */
+.dark-mode {
+    -fx-control-inner-background: #262626;
+}
+
+.dark-mode .table-view {
+    -fx-border-color: #1E1E1E;
+    -fx-background-color: #212121;
+}
+
+.dark-mode .table-view .column-header-background {
+    -fx-background-color: #1A1A1A;
+}
+
+.dark-mode .table-view .column-header {
+    -fx-background-color: #1A1A1A;
+    -fx-border-color: #444444;
+    -fx-border-width: 0 1px 1px 0;
+}
+
+.dark-mode .table-view .column-header .label {
+    -fx-text-fill: #FFFFFF;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(gaussian, rgba(255,255,255,0.3), 1, 0.0, 0, 1);
+}
+
+.dark-mode .table-view .table-row-cell {
+    -fx-background-color: #262626;
+    -fx-border-color: #333333;
+}
+
+.dark-mode .table-view .table-row-cell .text {
+    -fx-fill: white;
+}
+
+.dark-mode .table-view .table-row-cell:selected {
+    -fx-background-color: #0277BD;
+}
+
+.dark-mode .table-view .table-row-cell:selected .text {
+    -fx-fill: white;
+}
+
+/* ========== QUEUE STYLES (DARK MODE) ========== */
+.dark-mode .queue-titled-pane > .title {
+    -fx-background-color: #263238;
+    -fx-border-color: #455A64;
+}
+
+.dark-mode .queue-titled-pane > .title > .arrow-button .arrow {
+    -fx-background-color: #e0e0e0;
+}
+
+.dark-mode .queue-header-label {
+    -fx-text-fill: #FFFFFF;
+    -fx-effect: dropshadow(gaussian, rgba(255,255,255,0.3), 1, 0.0, 0, 1);
+}
+
+.dark-mode .queue-details {
+    -fx-background-color: #1E272C;
+}
+
+.dark-mode .queue-titled-pane .list-view {
+    -fx-background-color: #212121;
+    -fx-control-inner-background: #262626;
+    -fx-border-color: #333333;
+}
+
+.dark-mode .queue-titled-pane ListView,
+.dark-mode .queue-titled-pane .list-view .virtual-flow,
+.dark-mode .queue-titled-pane .list-view .clipped-container,
+.dark-mode .queue-titled-pane .list-view .sheet,
+.dark-mode .queue-titled-pane .list-view .corner {
+    -fx-background-color: #262626;
+}
+
+.dark-mode .queue-titled-pane .list-view .text {
+    -fx-fill: #FFFFFF !important;
+    -fx-effect: dropshadow(gaussian, rgba(255,255,255,0.2), 1, 0.0, 0, 1);
+}
+
+.dark-mode .list-view,
+.dark-mode .list-view .list-cell {
+    -fx-background-color: #262626;
+    -fx-text-fill: #FFFFFF;
+    -fx-control-inner-background: #262626;
+}
+
+.dark-mode .queue-titled-pane .list-view .list-cell {
+    -fx-background-color: #262626;
+    -fx-text-fill: #FFFFFF;
+    -fx-padding: 5px;
+    -fx-border-color: #1E1E1E;
+    -fx-border-width: 0 0 1px 0;
+    -fx-control-inner-background: #262626;
+    -fx-control-inner-background-alt: #2A2A2A;
+    -fx-accent: #0277BD;
+    -fx-selection-bar: #0277BD;
+}
+
+.dark-mode .queue-titled-pane .list-view .list-cell .text {
+    -fx-fill: white;
+    -fx-effect: dropshadow(gaussian, rgba(255,255,255,0.2), 1, 0.0, 0, 1);
+}
+
+.dark-mode .queue-titled-pane .list-view .list-cell:selected {
+    -fx-background-color: #0277BD;
+}
+
+.dark-mode .queue-titled-pane .list-view .list-cell:selected .text {
+    -fx-fill: white;
+    -fx-effect: dropshadow(gaussian, rgba(255,255,255,0.4), 2, 0.0, 0, 1);
+}
+
+.dark-mode .queue-item-label {
+    -fx-text-fill: #FFFFFF;
+}
+
+.dark-mode .queue-item-label .text {
+    -fx-fill: white;
+}
+
+.dark-mode .queue-count-label {
+    -fx-text-fill: #FFFFFF;
+}
+
+.dark-mode .queue-count-label .text {
+    -fx-fill: white;
+}
+
+/* ========== LYRICS STYLES (DARK MODE) ========== */
+.dark-mode .lyrics-container {
+    -fx-background-color: #37474F;
+    -fx-border-color: #546E7A;
+}
+
+.dark-mode .current-lyric {
+    -fx-text-fill: #4CAF50;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.5), 5, 0.0, 0, 1);
+}
+
+.dark-mode .current-lyric .text {
+    -fx-fill: #4CAF50;
+}
+
+.dark-mode .other-lyric {
+    -fx-text-fill: #B0BEC5;
+}
+
+.dark-mode .other-lyric .text {
+    -fx-fill: #B0BEC5;
+}
+
+/* ========== PLAYER CONTROLS (DARK MODE) ========== */
+.dark-mode .time-label {
+    -fx-text-fill: #FFFFFF;
+}
+
+.dark-mode .time-label .text {
+    -fx-fill: #FFFFFF;
+    -fx-effect: dropshadow(gaussian, rgba(255,255,255,0.3), 1, 0.0, 0, 1);
+}
+
+.dark-mode .now-playing-bar {
+    -fx-background-color: #263238;
+    -fx-border-color: #37474F;
+}
+
+.dark-mode .now-playing-label-title,
+.dark-mode .now-playing-label-info {
+    -fx-text-fill: #FFFFFF;
+}
+
+.dark-mode .now-playing-label-title .text,
+.dark-mode .now-playing-label-info .text {
+    -fx-fill: #FFFFFF;
+    -fx-effect: dropshadow(gaussian, rgba(255,255,255,0.3), 1, 0.0, 0, 1);
+}
+
+.dark-mode .control-button-bar {
+    -fx-background-color: #37474F;
+    -fx-border-color: #2C3A40;
+}
+
+/* ========== BUTTONS & CONTROLS (DARK MODE) ========== */
+.dark-mode .button, .dark-mode .toggle-button {
+    -fx-background-color: #546E7A, linear-gradient(#607D8B, #455A64);
+    -fx-text-fill: #ECEFF1;
+}
+
+.dark-mode .button:hover, .dark-mode .toggle-button:hover {
+    -fx-base: #78909C;
+}
+
+.dark-mode .button:pressed, .dark-mode .toggle-button:selected {
+    -fx-background-color: #455A64;
+    -fx-text-fill: white;
+}
+
+.dark-mode .text-field, .dark-mode .combo-box .text-field {
+    -fx-prompt-text-fill: #78909C;
+    -fx-border-color: #3A4F57;
+    -fx-background-color: #37474F;
+    -fx-text-fill: #ECEFF1;
+}
+
+.dark-mode .combo-box {
+    -fx-background-color: #37474F;
+    -fx-border-color: #3A4F57;
+    -fx-text-fill: #ECEFF1;
+}
+
+.dark-mode .combo-box .arrow-button {
+    -fx-background-color: #455A64;
+}
+
+.dark-mode .combo-box .arrow-button .arrow {
+    -fx-background-color: #ECEFF1;
+}
+
+.dark-mode .combo-box .list-cell {
+    -fx-text-fill: #ECEFF1;
+    -fx-background-color: #37474F;
+}
+
+.dark-mode .combo-box .list-cell .text {
+    -fx-fill: #ECEFF1;
+}
+
+.dark-mode .combo-box-popup .list-view {
+    -fx-background-color: #37474F;
+    -fx-border-color: #3A4F57;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.7), 10, 0, 0, 0);
+}
+
+.dark-mode .combo-box-popup .list-cell {
+    -fx-background-color: #37474F;
+    -fx-text-fill: #ECEFF1;
+    -fx-cell-hover-color: #546E7A;
+    -fx-cell-focus-inner-border: #546E7A;
+}
+
+.dark-mode .combo-box-popup .list-cell:hover {
+    -fx-background-color: #546E7A;
+    -fx-text-fill: #FFFFFF;
+}
+
+.dark-mode .combo-box-popup .list-cell:filled:selected {
+    -fx-background-color: #0277BD;
+    -fx-text-fill: #FFFFFF;
+}
+
+.dark-mode .combo-box .list-cell:hover {
+    -fx-background-color: #546E7A;
+}
+
+.dark-mode .combo-box .list-cell:filled:selected {
+    -fx-background-color: #0277BD;
+    -fx-text-fill: white;
+}
+
+.dark-mode .combo-box .list-cell:filled:selected .text {
+    -fx-fill: white;
+}
+
+.dark-mode .slider .track {
+    -fx-background-color: #455A64;
+}
+
+.dark-mode .slider .thumb {
+    -fx-background-color: #90A4AE;
+}
+
+.dark-mode .lyric-offset-button {
+    -fx-background-color: #505050;
+    -fx-text-fill: white;
+    -fx-border-color: #383838;
+}
+
+.dark-mode .lyric-offset-button:hover {
+    -fx-background-color: #606060;
+}
+
+.dark-mode .lyric-offset-label {
+    -fx-text-fill: white;
+}
+
+/* ========== SCROLLBAR STYLES (DARK MODE) ========== */
+.dark-mode .scroll-bar {
+    -fx-background-color: #2A2A2A;
+    -fx-border-color: #333333;
+    -fx-border-width: 0;
+}
+
+.dark-mode .scroll-bar .thumb {
+    -fx-background-color: #4F5B62;
+    -fx-background-radius: 4px;
+}
+
+.dark-mode .scroll-bar .thumb:hover {
+    -fx-background-color: #607D8B;
+}
+
+.dark-mode .scroll-bar .thumb:pressed {
+    -fx-background-color: #78909C;
+}
+
+.dark-mode .scroll-bar .increment-button,
+.dark-mode .scroll-bar .decrement-button {
+    -fx-background-color: #2A2A2A;
+    -fx-border-color: #333333;
+    -fx-border-width: 0;
+}
+
+.dark-mode .scroll-bar .increment-arrow,
+.dark-mode .scroll-bar .decrement-arrow {
+    -fx-background-color: #B0BEC5;
+    -fx-effect: null;
+}
+
+.dark-mode .scroll-bar .track {
+    -fx-background-color: #262626;
+}
+
+.dark-mode .scroll-pane {
+    -fx-background-color: transparent;
+    -fx-border-color: #333333;
+    -fx-border-width: 0;
+}
+
+.dark-mode .scroll-pane > .viewport {
+    -fx-background-color: transparent;
+}
+
+.dark-mode .table-view .scroll-bar {
+    -fx-background-color: #212121;
+    -fx-border-width: 0;
+    -fx-pref-width: 12px;
+}
+
+.dark-mode .table-view .scroll-bar .thumb {
+    -fx-background-color: #4F5B62;
+    -fx-background-radius: 4px;
+}
+
+.dark-mode .table-view .virtual-flow .scroll-bar .thumb {
+    -fx-background-color: #4F5B62;
+}
+
+.dark-mode .list-view .scroll-bar {
+    -fx-background-color: #212121;
+    -fx-border-width: 0;
+    -fx-pref-width: 12px;
+}
+
+.dark-mode .list-view .scroll-bar .thumb {
+    -fx-background-color: #4F5B62;
+    -fx-background-radius: 4px;
+}
+
+.dark-mode .list-view .virtual-flow .scroll-bar .thumb {
+    -fx-background-color: #4F5B62;
+}
+
+.dark-mode .scroll-pane .corner,
+.dark-mode .table-view .corner,
+.dark-mode .list-view .corner {
+    -fx-background-color: #1E1E1E;
+}
+
+.dark-mode .virtual-flow,
+.dark-mode .table-view .virtual-flow,
+.dark-mode .list-view .virtual-flow {
+    -fx-background-color: #262626;
+}
+
+.dark-mode .queue-titled-pane .list-view .scroll-bar {
+    -fx-background-color: #212121;
+}
+
+.dark-mode .queue-titled-pane .list-view .scroll-bar .thumb {
+    -fx-background-color: #4F5B62;
+}
+
+.dark-mode .queue-titled-pane .list-view .scroll-bar .thumb:hover {
+    -fx-background-color: #607D8B;
+}
+
+.dark-mode .lyrics-container .scroll-bar {
+    -fx-background-color: #37474F;
+}
+
+.dark-mode .lyrics-container .scroll-bar .thumb {
+    -fx-background-color: #546E7A;
+}
+
+/* ========== FULLSCREEN STYLES (DARK MODE) ========== */
 .dark-mode .fullscreen-root-pane {
     -fx-background-color: #121212;
 }
@@ -401,15 +802,30 @@
 
 .dark-mode .fullscreen-next-song-label,
 .dark-mode .fullscreen-queue-count-label {
-    -fx-text-fill: #e0e0e0; /* Light text */
+    -fx-text-fill: #FFFFFF;
+}
+
+.dark-mode .fullscreen-next-song-label .text,
+.dark-mode .fullscreen-queue-count-label .text {
+    -fx-fill: #FFFFFF;
+    -fx-effect: dropshadow(gaussian, rgba(255,255,255,0.3), 1, 0.0, 0, 1);
 }
 
 .dark-mode .fullscreen-current-lyric {
-    -fx-text-fill: #4CAF50; /* Example: Green for dark mode fullscreen */
+    -fx-text-fill: #4CAF50;
+}
+
+.dark-mode .fullscreen-current-lyric .text {
+    -fx-fill: #4CAF50;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.5), 5, 0.0, 0, 1);
 }
 
 .dark-mode .fullscreen-other-lyric {
-    -fx-text-fill: #b0b0b0; /* Lighter grey */
+    -fx-text-fill: #B0BEC5;
+}
+
+.dark-mode .fullscreen-other-lyric .text {
+    -fx-fill: #B0BEC5;
 }
 
 .dark-mode .fullscreen-bottom-bar {
@@ -417,25 +833,48 @@
 }
 
 .dark-mode .fullscreen-time-label {
-    -fx-text-fill: #e0e0e0; /* Light text */
+    -fx-text-fill: #FFFFFF;
+}
+
+.dark-mode .fullscreen-time-label .text {
+    -fx-fill: #FFFFFF;
+    -fx-effect: dropshadow(gaussian, rgba(255,255,255,0.3), 1, 0.0, 0, 1);
 }
 
 .dark-mode .fullscreen-button {
-    -fx-text-fill: white;
-    -fx-background-color: #505050;
-    -fx-border-color: #606060;
-}
-.dark-mode .fullscreen-button:hover {
-    -fx-background-color: #606060;
-}
-.dark-mode .fullscreen-button.toggle-button:selected {
-    -fx-background-color: #707070;
+    -fx-text-fill: #ECEFF1;
+    -fx-background-color: #546E7A, linear-gradient(#607D8B, #455A64);
+    -fx-border-color: #37474F;
+    -fx-background-insets: 0, 1;
+    -fx-background-radius: 3px;
 }
 
-/* Slider in fullscreen dark mode */
-.dark-mode .fullscreen-root-pane .slider .thumb {
-    -fx-background-color: #4CAF50; /* Accent color for dark mode fullscreen */
+.dark-mode .fullscreen-button:hover {
+    -fx-background-color: #78909C;
 }
+
+.dark-mode .fullscreen-button.toggle-button:selected, 
+.dark-mode .fullscreen-button:pressed {
+    -fx-background-color: #455A64;
+    -fx-text-fill: white;
+}
+
+.dark-mode .fullscreen-root-pane .slider .thumb {
+    -fx-background-color: #90A4AE;
+}
+
 .dark-mode .fullscreen-root-pane .slider .track {
-    -fx-background-color: #505050; /* Dark track */
+    -fx-background-color: #455A64;
+}
+
+.dark-mode .fullscreen-lyrics-container .scroll-bar .corner {
+    -fx-background-color: #121212;
+}
+
+.dark-mode .fullscreen-lyrics-container .scroll-bar {
+    -fx-background-color: #1A1A1A;
+}
+
+.dark-mode .fullscreen-lyrics-container .scroll-bar .thumb {
+    -fx-background-color: #4F5B62;
 }
