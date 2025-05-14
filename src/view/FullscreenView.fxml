@@ -41,7 +41,17 @@
         <VBox styleClass="fullscreen-bottom-bar" spacing="5.0" BorderPane.alignment="CENTER">
             <padding><Insets top="10" right="20" bottom="20" left="20" /></padding>
             <children>
-                <HBox alignment="CENTER" spacing="10.0">
+                <HBox alignment="CENTER_LEFT" spacing="10.0" styleClass="fullscreen-now-playing-bar">
+                    <padding>
+                        <Insets left="0" right="10.0" top="5.0" bottom="5.0" />
+                    </padding>
+                    <children>
+                        <Label styleClass="fullscreen-now-playing-label-title" text="Now Playing:" />
+                        <Label fx:id="fullscreenNowPlayingTitleLabel" styleClass="fullscreen-now-playing-label-info" text="-" HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
+                        <Label fx:id="fullscreenNowPlayingArtistLabel" styleClass="fullscreen-now-playing-label-info" text="-" minWidth="-Infinity"/>
+                    </children>
+                </HBox>
+                <HBox alignment="CENTER_LEFT" spacing="10.0">
                     <children>
                         <Label fx:id="fullscreenCurrentTimeLabel" styleClass="time-label fullscreen-time-label" text="0:00" minWidth="-Infinity"/>
                         <Slider fx:id="fullscreenPlaybackSlider" HBox.hgrow="ALWAYS"/>
@@ -50,7 +60,6 @@
                 </HBox>
                 <HBox alignment="CENTER" spacing="15.0" styleClass="fullscreen-controls-hbox">
                     <children>
-                        <!-- Changed ToggleButton to Button for exiting fullscreen -->
                         <Button fx:id="fullscreenExitButton" text="Exit Fullscreen" onAction="#handleExitFullscreenToggle" styleClass="fullscreen-button"/>
                         <ToggleButton fx:id="fullscreenThemeToggleButton" text="Dark Mode" onAction="#handleFullscreenThemeToggle" styleClass="fullscreen-button"/>
 

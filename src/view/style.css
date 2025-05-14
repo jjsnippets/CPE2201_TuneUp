@@ -346,6 +346,17 @@
     -fx-background-color: #CFD8DC;
 }
 
+.fullscreen-now-playing-label-title {
+    -fx-font-weight: bold;
+    -fx-font-size: 1.5em;
+    -fx-text-fill: #37474F;
+}
+
+.fullscreen-now-playing-label-info {
+    -fx-font-size: 1.5em;
+    -fx-text-fill: #37474F;
+}
+
 .fullscreen-button.toggle-button:selected, 
 .fullscreen-button:pressed {
     -fx-background-color: #90A4AE;

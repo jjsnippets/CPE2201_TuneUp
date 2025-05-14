@@ -42,6 +42,8 @@ public class FullscreenViewController implements Initializable, MainController.S
     @FXML private Label fullscreenCurrentTimeLabel;
     @FXML private Slider fullscreenPlaybackSlider;
     @FXML private Label fullscreenTotalDurationLabel;
+    @FXML private Label fullscreenNowPlayingTitleLabel;
+    @FXML private Label fullscreenNowPlayingArtistLabel;
     @FXML private Button fullscreenPlayPauseButton;
     @FXML private Button fullscreenSkipButton;
     @FXML private Button fullscreenExitButton;
@@ -161,6 +163,24 @@ public class FullscreenViewController implements Initializable, MainController.S
         if(fullscreenCurrentLyricLabel != null) fullscreenCurrentLyricLabel.setText(mainController.getLyricTextOrEmpty(displayLines, 1));
         if(fullscreenNext1LyricLabel != null) fullscreenNext1LyricLabel.setText(mainController.getLyricTextOrEmpty(displayLines, 2));
         if(fullscreenNext2LyricLabel != null) fullscreenNext2LyricLabel.setText(mainController.getLyricTextOrEmpty(displayLines, 3));
+
+        // Now Playing Info
+        Song currentSong = playerService.getCurrentSong();
+        if (currentSong != null) {
+            if (fullscreenNowPlayingTitleLabel != null) {
+                fullscreenNowPlayingTitleLabel.setText(currentSong.getTitle());
+            }
+            if (fullscreenNowPlayingArtistLabel != null) {
+                fullscreenNowPlayingArtistLabel.setText(currentSong.getArtist());
+            }
+        } else {
+            if (fullscreenNowPlayingTitleLabel != null) {
+                fullscreenNowPlayingTitleLabel.setText("-");
+            }
+            if (fullscreenNowPlayingArtistLabel != null) {
+                fullscreenNowPlayingArtistLabel.setText("-");
+            }
+        }
 
         // Bottom Bar Controls
         MediaPlayer.Status status = playerService.getStatus();
