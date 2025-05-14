@@ -147,7 +147,12 @@ public class FullscreenViewController implements Initializable, MainController.S
             fullscreenNextSongLabel.setText(nextInQueue != null ? "Next: " + mainController.formatSongForQueue(nextInQueue) : "Next: -");
         }
         if(fullscreenQueueCountLabel != null) {
-            fullscreenQueueCountLabel.setText("(+" + calculatedRemainingInQueue + " more)");
+            if (calculatedRemainingInQueue > 0) {
+                fullscreenQueueCountLabel.setText("(+" + calculatedRemainingInQueue + " more)");
+                fullscreenQueueCountLabel.setVisible(true);
+            } else {
+                fullscreenQueueCountLabel.setVisible(false);
+            }
         }
 
         // Lyrics
