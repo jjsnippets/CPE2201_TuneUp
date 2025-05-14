@@ -215,12 +215,27 @@ public class MainController implements Initializable {
     }
 
     public void handleSkip() {
-        if (playerService != null) {
-            playerService.stop();
-            playNextSong(false);
+        if (playerService == null || queueService == null) {
+            System.err.println("MainController.handleSkip: playerService or queueService is null. Cannot skip.");
+            return;
+        }
+
+        // Attempt to get the next song from the queue. This will remove it.
+        Song nextSong = queueService.getNextSong();
+
+        if (nextSong != null) {
+            // If a next song is available, load it using the new method
+            // which respects the previous song's playback state.
+            System.out.println("MainController.handleSkip: Loading next song: " + (nextSong.getTitle() != null ? nextSong.getTitle() : "Unknown Title"));
+            playerService.loadSongAfterSkip(nextSong);
+        } else {
+            // No next song was available in the queue.
+            // Stop the player and clear the current song.
+            System.out.println("MainController.handleSkip: Queue is empty. Stopping player.");
+            playerService.loadSong(null, false); // This effectively stops and resets.
         }
     }
-    
+
     public void playNextSong(boolean isAutoPlayContext) {
         if (playerService == null || queueService == null) return;
         Song songToPlay = null;

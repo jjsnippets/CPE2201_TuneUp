@@ -164,8 +164,30 @@ public class PlayerService {
     }
 
     /**
+     * Loads the given song, automatically determining whether to start playback based on the
+     * state of the song currently being played or paused. If the current song is playing,
+     * the new song will also play once loaded. Otherwise (e.g., paused, stopped),
+     * the new song will be loaded but will not auto-play.
+     * This method is intended for use with "skip next" or "skip previous" functionality.
+     *
+     * @param song The Song object to load. Can be null, in which case the player is reset
+     *             and false is returned (consistent with {@link #loadSong(Song, boolean)}).
+     * @return true if loading was successfully initiated, false otherwise.
+     */
+    public boolean loadSongAfterSkip(Song song) {
+        MediaPlayer.Status previousStatus = getStatus(); // Get current status
+        boolean startPlaybackForNewSong = (previousStatus == MediaPlayer.Status.PLAYING);
+
+        System.out.println("PlayerService: loadSongAfterSkip called. Previous status: " + previousStatus +
+                           ". New song will " + (startPlaybackForNewSong ? "auto-play." : "load paused/ready."));
+
+        // Call the main loadSong method with the determined playback flag.
+        // loadSong handles null song checks, disposing the old player, and setting up the new one.
+        return loadSong(song, startPlaybackForNewSong);
+    }
+
+    /**
      * Starts or resumes playback of the currently loaded song. (FR1.3)
-     * If called manually, it cancels any pending auto-play.
      */
     public void play() {
         if (mediaPlayer != null &&
