@@ -325,7 +325,7 @@ public class NormalViewController implements Initializable, MainController.SubCo
 
         playPauseButton.setText(playing ? "Pause" : "Play");
         playPauseButton.setDisable(!playing && !canStartPlayback);
-        if(stopButton != null) stopButton.setDisable(!playing && !paused);
+        if(stopButton != null) stopButton.setDisable(!queueCanProvideSong && !songIsLoadedInPlayer);
         if(skipButton != null) skipButton.setDisable(!queueCanProvideSong && !songIsLoadedInPlayer);
 
         if (stoppedOrReady || haltedOrUnknown) {

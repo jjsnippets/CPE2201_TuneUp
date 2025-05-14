@@ -174,7 +174,7 @@ public class FullscreenViewController implements Initializable, MainController.S
             fullscreenPlayPauseButton.setDisable(!isPlaying && !canPlayFs);
         }
         if(fullscreenSkipButton != null) fullscreenSkipButton.setDisable(queueService.isEmpty() && !songLoaded);
-        if(fullscreenStopButton != null) fullscreenStopButton.setDisable(!isPlaying && !isPaused);
+        if(fullscreenStopButton != null) fullscreenStopButton.setDisable(queueService.isEmpty() && !songLoaded);
 
         // Slider and Time Labels
         if (songLoaded) {
