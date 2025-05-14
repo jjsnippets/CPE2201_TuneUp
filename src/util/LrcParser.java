@@ -121,7 +121,8 @@ public class LrcParser {
 
         if (foundTimeTag) {
             String text = line.substring(lastTagEnd).trim();
-            if (!text.isEmpty() && !timestamps.isEmpty()) {
+            // Empty text lines are allowed as long as there's a timestamp
+            if (!timestamps.isEmpty()) { 
                 for (Long timestamp : timestamps) {
                     lyricLines.add(new LyricLine(timestamp, text));
                 }
