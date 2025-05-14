@@ -266,7 +266,12 @@ public class FullscreenViewController implements Initializable, MainController.S
 
     @FXML private void handleFullscreenPlayPause() { if (mainController != null) mainController.handlePlayPause(); }
     @FXML private void handleFullscreenSkip() { if (mainController != null) mainController.handleSkip(); }
-    @FXML private void handleFullscreenStop() { if (mainController != null) mainController.handleStop(); }
+    @FXML private void handleFullscreenStop() {
+        if (mainController != null) {
+            mainController.handleSkip(); // quick bug fix: calling stop directly seems to not update the UI correctly
+            mainController.handleStop();
+        }
+    }
 
     @FXML private void handleFullscreenIncreaseOffset() {
         if (mainController != null) mainController.adjustLyricOffset(MainController.LYRIC_OFFSET_ADJUSTMENT_STEP);
