@@ -186,25 +186,59 @@ public class MainController implements Initializable {
     public void handlePlayPause() {
         if (playerService == null) return;
         MediaPlayer.Status s = playerService.getStatus();
-        if (s == MediaPlayer.Status.PLAYING) playerService.pause();
-        else if (s == MediaPlayer.Status.PAUSED) playerService.play();
-        else {
+
+        if (s == MediaPlayer.Status.PLAYING) {
+            playerService.pause();
+        } else if (s == MediaPlayer.Status.PAUSED) {
+            playerService.play();
+        } else if (playerService.getCurrentSong() != null &&
+                   (s == MediaPlayer.Status.READY || s == MediaPlayer.Status.STOPPED)) {
+            // If a song is loaded and is READY or STOPPED, just play it.
+            // This handles resuming a stopped song or starting a song that was loaded
+            // (e.g. after skip if prev was paused/stopped, then scrubbed, then play is hit).
+            playerService.play();
+        } else {
+            // Covers:
+            // - HALTED or UNKNOWN (needs a song load/reload).
+            // - Player has no current song (e.g. initial state, or after stop all).
+            // - Or, user selected a *different* song from the library to play.
+
             Song songToPlay = null;
-            Song currentSelected = (normalViewController != null) ? normalViewController.getCurrentlySelectedSong() : null;
-            
-            if (currentSelected != null &&
-                (playerService.getCurrentSong() == null || !playerService.getCurrentSong().equals(currentSelected))) {
-                songToPlay = currentSelected;
-            } else if (playerService.getCurrentSong() != null) { // If song loaded (even if stopped), replay it
-                songToPlay = playerService.getCurrentSong();
+            Song currentSelectedFromView = null;
+
+            // Determine active view and get its selected song
+            // Assuming normalView and fullscreenView are Nodes and their visibility can be checked.
+            // And that controllers are not null.
+            if (normalViewController != null && normalView != null && normalView.isVisible()) {
+                currentSelectedFromView = normalViewController.getCurrentlySelectedSong();
+            } else if (fullscreenViewController != null && fullscreenView != null && fullscreenView.isVisible()) {
+                // currentSelectedFromView = fullscreenViewController.getCurrentlySelectedSong(); // Assuming FullscreenViewController has this method
             }
 
+            // Priority 1: Play a song selected in the library if it's different from what's in the player,
+            // or if the player is in a state (like HALTED) that warrants a reload of the selected song.
+            if (currentSelectedFromView != null &&
+                (playerService.getCurrentSong() == null ||
+                 !playerService.getCurrentSong().equals(currentSelectedFromView) ||
+                 s == MediaPlayer.Status.HALTED /* If player is HALTED, good to reload selected song */
+                )) {
+                songToPlay = currentSelectedFromView;
+            }
+            // Priority 2: If no new selection, but player was HALTED and had a song, try to reload that.
+            else if (playerService.getCurrentSong() != null && s == MediaPlayer.Status.HALTED) {
+                songToPlay = playerService.getCurrentSong(); // Attempt reload
+            }
+
+            // If we decided on a song to load/reload:
             if (songToPlay != null) {
                 loadAndPlaySong(songToPlay);
-            } else if (queueService != null && !queueService.isEmpty()) {
-                playNextSong(false);
             }
-            // UI state is updated by listeners in sub-controllers
+            // Otherwise, if nothing specific to load/reload, try the queue:
+            else if (queueService != null && !queueService.isEmpty()) {
+                playNextSong(false); // Gets from queue and calls loadAndPlaySong
+            } else {
+                System.out.println("MainController.handlePlayPause: No song to play or action to take in the 'else' block.");
+            }
         }
     }
 

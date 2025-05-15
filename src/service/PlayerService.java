@@ -31,6 +31,7 @@ public class PlayerService {
 
     private MediaPlayer mediaPlayer;
     private boolean playWhenReady = false; // Flag to manage auto-play after loading
+    private Long pendingSeekMillis = null; // Stores a seek request if made before player is ready
 
     // --- Observable Properties ---
     // Wraps the MediaPlayer status, providing a read-only property.
@@ -239,42 +240,22 @@ public class PlayerService {
      * @param millis The position to seek to, in milliseconds.
      */
     public void seek(long millis) {
-        if (mediaPlayer != null &&
-            (getStatus() == MediaPlayer.Status.PLAYING ||
-             getStatus() == MediaPlayer.Status.PAUSED ||
-             getStatus() == MediaPlayer.Status.READY ||  // Allow seeking when ready but not yet played
-             getStatus() == MediaPlayer.Status.STOPPED)) { // Allow seeking when stopped
-
-            long adjustedMillis = Math.max(0, millis); // Ensure non-negative
-            long totalDurationMs = getTotalDurationMillis();
-
-            if (totalDurationMs > 0 && adjustedMillis > totalDurationMs) {
-                adjustedMillis = totalDurationMs; // Cap seek time at total duration
+        if (mediaPlayer != null) {
+            MediaPlayer.Status currentStatus = getStatus();
+            if (currentStatus == MediaPlayer.Status.READY ||
+                currentStatus == MediaPlayer.Status.PAUSED ||
+                currentStatus == MediaPlayer.Status.PLAYING ||
+                currentStatus == MediaPlayer.Status.STOPPED) {
+                System.out.println("PlayerService: Seeking to " + millis + "ms. Current status: " + currentStatus);
+                mediaPlayer.seek(Duration.millis(millis));
+                this.pendingSeekMillis = null; // Clear any prior pending seek
+            } else {
+                System.out.println("PlayerService: Deferring seek to " + millis + "ms. Current status: " + currentStatus);
+                this.pendingSeekMillis = millis;
             }
-
-            System.out.println("PlayerService: Seeking to " + adjustedMillis + "ms.");
-            mediaPlayer.seek(Duration.millis(adjustedMillis));
-
-            // Manually update currentTimeWrapper if seeking from a non-PLAYING state,
-            // as MediaPlayer's currentTimeProperty might not update immediately or trigger listeners
-            // until playback resumes or another action occurs.
-            if (getStatus() != MediaPlayer.Status.PLAYING) {
-                // Ensure this runs on FX thread if PlayerService might be called from non-FX thread,
-                // though typically service methods are called from controller on FX thread.
-                // For direct property updates from listeners, Platform.runLater isn't usually needed.
-                // Here, it's a direct update after an action.
-                final long finalAdjustedMillis = adjustedMillis; // Effective final for lambda
-                Platform.runLater(() -> {
-                     // Check status again in case it changed rapidly
-                    if (getStatus() != MediaPlayer.Status.PLAYING) {
-                       currentTimeMillisWrapper.set(finalAdjustedMillis);
-                    }
-                });
-            }
-        } else if (mediaPlayer != null) {
-            System.err.println("PlayerService: Cannot seek in current state: " + getStatus());
         } else {
             System.err.println("PlayerService: Cannot seek, no media loaded.");
+            this.pendingSeekMillis = null;
         }
     }
 
@@ -297,49 +278,72 @@ public class PlayerService {
     private void addMediaPlayerListeners() {
         if (mediaPlayer == null) return;
 
-        mediaPlayer.statusProperty().addListener((_obs, _oldStatus, newStatus) -> {
-            statusWrapper.set(newStatus); // Update the service's status property
+        // Listener for status changes
+        mediaPlayer.statusProperty().addListener((obs, oldStatus, newStatus) -> {
+            Platform.runLater(() -> statusWrapper.set(newStatus));
         });
 
-        mediaPlayer.currentTimeProperty().addListener((_obs, _oldTime, newTime) -> {
-            if (newTime != null) {
-                currentTimeMillisWrapper.set((long) newTime.toMillis()); // Update current time
-            }
+        // Listener for current time changes
+        mediaPlayer.currentTimeProperty().addListener((obs, oldTime, newTime) -> {
+            Platform.runLater(() -> currentTimeMillisWrapper.set((long) newTime.toMillis()));
         });
 
+        // Listener for when media is ready
         mediaPlayer.setOnReady(() -> {
-            Duration total = mediaPlayer.getTotalDuration();
-            long totalMillis = 0L;
-            if (total != null && !total.isUnknown() && !total.isIndefinite()) {
-                totalMillis = (long) total.toMillis();
-            }
-            totalDurationMillisWrapper.set(totalMillis); // Update total duration
+            Platform.runLater(() -> {
+                totalDurationMillisWrapper.set((long) mediaPlayer.getTotalDuration().toMillis());
+                // statusWrapper.set(MediaPlayer.Status.READY); // Done by statusProperty listener
 
-            if (playWhenReady) {
-                System.out.println("PlayerService: Media ready, auto-playing...");
-                mediaPlayer.play();
-                playWhenReady = false; // Reset flag
-            } else {
-                System.out.println("PlayerService: Media ready (auto-play disabled or already handled).");
-            }
-            // Note: The status will transition to READY via the statusProperty listener.
+                Song currentSong = currentSongWrapper.get();
+                String songTitle = (currentSong != null) ? currentSong.getTitle() : "media";
+
+                System.out.println("PlayerService: Media ready for '" + songTitle +
+                                   "'. Duration: " + mediaPlayer.getTotalDuration().toMillis() + "ms");
+
+                if (pendingSeekMillis != null) {
+                    System.out.println("PlayerService: Applying pending seek to " + pendingSeekMillis + "ms for '" + songTitle + "'.");
+                    mediaPlayer.seek(Duration.millis(pendingSeekMillis));
+                    // currentTimeMillisWrapper will be updated by its listener due to seek.
+                    pendingSeekMillis = null;
+                }
+
+                if (playWhenReady) {
+                    System.out.println("PlayerService: Auto-playing '" + songTitle + "' as playWhenReady is true.");
+                    play(); // Call the service's play method, which handles playWhenReady flag and plays
+                } else {
+                    // If not auto-playing, player is ready. If a seek was applied, it's at the new position.
+                    System.out.println("PlayerService: Media ready for '" + songTitle + "', playWhenReady is false. Current time: " + mediaPlayer.getCurrentTime().toMillis() + "ms");
+                }
+            });
         });
 
+        // Listener for end of media
         mediaPlayer.setOnEndOfMedia(() -> {
-            System.out.println("PlayerService: End of media reached for '" +
-                               (getCurrentSong() != null ? getCurrentSong().getTitle() : "media") + "'.");
-            // Transition to STOPPED state. The controller's status listener
-            // can then decide to play the next song from the queue.
-            // Calling stop() also resets playWhenReady and handles status update via listener.
-            stop();
+            Platform.runLater(() -> {
+                System.out.println("PlayerService: End of media reached for '" +
+                                   (currentSongWrapper.get() != null ? currentSongWrapper.get().getTitle() : "media") + "'.");
+                // Consider notifying a controller or service to handle next song in queue
+                // For now, behavior might be to stop or await further action.
+                // If MainController.playNextSong(true) is the desired action:
+                // This would require a callback or event bus, or passing MainController instance.
+                // For simplicity, current behavior is likely handled by UI controllers listening to status/EOM.
+            });
         });
 
+        // Listener for errors
         mediaPlayer.setOnError(() -> {
-            MediaException error = mediaPlayer.getError();
-            handleLoadError("MediaPlayer internal error",
-                            (getCurrentSong() != null ? getCurrentSong().getAudioFilePath() : "N/A"),
-                            error);
-            // playWhenReady is reset by handleLoadError via disposePlayer
+            Platform.runLater(() -> {
+                MediaException error = mediaPlayer.getError();
+                String filePath = (currentSongWrapper.get() != null) ? currentSongWrapper.get().getAudioFilePath() : "Unknown file";
+                handleLoadError("MediaPlayer error during playback", filePath, error);
+            });
+        });
+
+        // Listener for total duration changes (though setOnReady is often primary for initial duration)
+        mediaPlayer.totalDurationProperty().addListener((obs, oldDuration, newDuration) -> {
+            if (newDuration != null && newDuration != Duration.UNKNOWN) {
+                Platform.runLater(() -> totalDurationMillisWrapper.set((long) newDuration.toMillis()));
+            }
         });
     }
 
@@ -394,6 +398,7 @@ public class PlayerService {
 
         // Always reset state when player is disposed or was not present
         playWhenReady = false; // Reset auto-play flag
+        pendingSeekMillis = null; // Reset pending seek
 
         // Reset observable properties to their initial/default state
         if (currentSongWrapper.get() != null) { // Check before setting to avoid needless event if already null
