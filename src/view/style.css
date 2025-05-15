@@ -420,6 +420,10 @@
     -fx-background-color: #1A1A1A;
 }
 
+.dark-mode .table-view .column-header-background .filler {
+    -fx-background-color: #1A1A1A;
+}
+
 .dark-mode .table-view .column-header {
     -fx-background-color: #1A1A1A;
     -fx-border-color: #444444;
@@ -780,6 +784,13 @@
 .dark-mode .table-view .virtual-flow,
 .dark-mode .list-view .virtual-flow {
     -fx-background-color: #262626;
+}
+
+.dark-mode .table-view .show-hide-column-image,
+.dark-mode .table-view .column-header-background .show-hide-columns-button,
+.dark-mode .table-view .column-drag-header,
+.dark-mode .table-view .column-header-background .filler {
+    -fx-background-color: #1A1A1A;
 }
 
 .dark-mode .queue-titled-pane .list-view .scroll-bar {
