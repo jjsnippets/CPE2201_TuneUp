@@ -259,6 +259,10 @@ public class PlayerService {
                 System.out.println("PlayerService: Seeking to " + millis + "ms. Current status: " + currentStatus);
                 mediaPlayer.seek(Duration.millis(millis));
                 this.pendingSeekMillis = null; // Clear any prior pending seek
+                
+                // Important: Update current time wrapper even if not playing
+                // This ensures lyrics update properly after seeking without playing
+                Platform.runLater(() -> currentTimeMillisWrapper.set(millis));
             } else {
                 System.out.println("PlayerService: Deferring seek to " + millis + "ms. Current status: " + currentStatus);
                 this.pendingSeekMillis = millis;
@@ -308,12 +312,12 @@ public class PlayerService {
                 String songTitle = (currentSong != null) ? currentSong.getTitle() : "media";
 
                 System.out.println("PlayerService: Media ready for '" + songTitle +
-                                   "'. Duration: " + mediaPlayer.getTotalDuration().toMillis() + "ms");
-
-                if (pendingSeekMillis != null) {
+                                   "'. Duration: " + mediaPlayer.getTotalDuration().toMillis() + "ms");                if (pendingSeekMillis != null) {
                     System.out.println("PlayerService: Applying pending seek to " + pendingSeekMillis + "ms for '" + songTitle + "'.");
                     mediaPlayer.seek(Duration.millis(pendingSeekMillis));
-                    // currentTimeMillisWrapper will be updated by its listener due to seek.
+                    // Also update the current time wrapper to ensure lyrics update for pending seeks
+                    currentTimeMillisWrapper.set(pendingSeekMillis);
+                    // pendingSeekMillis is cleared below
                     pendingSeekMillis = null;
                 }
 
