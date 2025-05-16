@@ -168,6 +168,7 @@ public class NormalViewController implements Initializable, MainController.SubCo
             }
             if (currentTimeLabel != null) currentTimeLabel.setText(mainController.formatTime(playerService.getCurrentTimeMillis()));
             if (totalDurationLabel != null) totalDurationLabel.setText(mainController.formatTime(playerService.getTotalDurationMillis()));
+            
         } else {
             if (playbackSlider != null) { playbackSlider.setMax(0); playbackSlider.setValue(0); }
             if (currentTimeLabel != null) currentTimeLabel.setText(mainController.formatTime(0));
@@ -333,6 +334,9 @@ public class NormalViewController implements Initializable, MainController.SubCo
             if (currentTimeLabel != null) currentTimeLabel.setText(mainController.formatTime(0));
             if (haltedOrUnknown && !songIsLoadedInPlayer && totalDurationLabel != null) totalDurationLabel.setText(mainController.formatTime(0));
         }
+
+        if (increaseOffsetButton != null) increaseOffsetButton.setDisable(!songIsLoadedInPlayer);
+        if (decreaseOffsetButton != null) decreaseOffsetButton.setDisable(!songIsLoadedInPlayer);
     }
 
     private void updateQueueDisplay() {
