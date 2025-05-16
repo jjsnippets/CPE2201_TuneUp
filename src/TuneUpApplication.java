@@ -1,7 +1,14 @@
 // package com.yourcompany.tuneup; // TODO: Replace with your actual package name
 
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.stage.Stage;
+import javafx.scene.Scene;
+import javafx.scene.Parent; // Use Parent for loaded root
+import javafx.scene.control.Alert;
+import javafx.fxml.FXMLLoader;
+import java.io.IOException;
+import java.net.URL;
 import javafx.scene.Scene;
 import javafx.scene.Parent; // Use Parent for loaded root
 import javafx.scene.control.Alert;
@@ -108,18 +115,33 @@ public class TuneUpApplication extends Application {
 
             // --- Setup Scene and Stage ---
             Scene scene = new Scene(root, 1000, 700); // Initial window size
-
-            // --- Set CSS Stylesheet ---
-            URL cssUrl = getClass().getResource("/view/style.css");
-            if (cssUrl != null) {
-                scene.getStylesheets().add(cssUrl.toExternalForm());
-                System.out.println("Loaded CSS: " + cssUrl.toExternalForm());
-            } else {
-                System.err.println("Warning: Global CSS file not found at /view/style.css. Default styles will apply.");
-            }
-
             primaryStage.setScene(scene);
-            primaryStage.setOnCloseRequest(event -> System.out.println("Main window close request received. Initiating shutdown..."));
+
+            // --- Load Multiple CSS Stylesheets ---
+                // Load base CSS
+                loadCssFile(scene, "/view/css/base.css");
+                
+                // Load theme CSS (default to light theme)
+                loadCssFile(scene, "/view/css/themes/light-theme.css");
+                // Load component-specific CSS files
+                loadCssFile(scene, "/view/css/components/common-components.css");
+                loadCssFile(scene, "/view/css/components/table-styles.css");
+                loadCssFile(scene, "/view/css/components/scrollbar-styles.css");
+                loadCssFile(scene, "/view/css/components/queue-styles.css");
+                loadCssFile(scene, "/view/css/components/player-controls.css");
+                loadCssFile(scene, "/view/css/components/normal-view.css");
+                loadCssFile(scene, "/view/css/components/lyrics-styles.css");
+                loadCssFile(scene, "/view/css/components/fullscreen-view.css");
+
+            // Add window close handler to properly shut down the application
+            primaryStage.setOnCloseRequest(event -> {
+                System.out.println("Main window close request received. Initiating shutdown...");
+                // Consume the event to handle the closing ourselves
+                event.consume();
+                // Properly close the application by calling Platform.exit()
+                javafx.application.Platform.exit();
+            });
+            
             primaryStage.show();
 
         } catch (IOException e) {
@@ -210,5 +232,25 @@ public class TuneUpApplication extends Application {
         // Set a preferred size for the dialog pane for better readability of error messages
         alert.getDialogPane().setPrefSize(480, 200); // Adjusted height
         alert.showAndWait(); // Show dialog and wait for user to close it
+    }
+    
+    /**
+     * Helper method to load a CSS stylesheet file into a JavaFX Scene.
+     * Handles resource loading and error logging.
+     *
+     * @param scene The JavaFX Scene to apply the stylesheet to
+     * @param cssPath The resource path to the CSS file (e.g., "/view/css/base.css")
+     * @return true if the CSS was loaded successfully, false otherwise
+     */
+    private boolean loadCssFile(Scene scene, String cssPath) {
+        URL cssUrl = getClass().getResource(cssPath);
+        if (cssUrl != null) {
+            scene.getStylesheets().add(cssUrl.toExternalForm());
+            System.out.println("Loaded CSS: " + cssPath);
+            return true;
+        } else {
+            System.err.println("Warning: CSS file not found at " + cssPath);
+            return false;
+        }
     }
 }
