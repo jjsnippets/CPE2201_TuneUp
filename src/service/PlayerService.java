@@ -13,6 +13,7 @@ import javafx.util.Duration;
 
 // --- Model Import ---
 import model.Song; // Import the Song model
+import service.OnEndOfMediaHandler; // Import the new functional interface
 
 // --- Java IO Imports ---
 import java.io.File;
@@ -32,6 +33,7 @@ public class PlayerService {
     private MediaPlayer mediaPlayer;
     private boolean playWhenReady = false; // Flag to manage auto-play after loading
     private Long pendingSeekMillis = null; // Stores a seek request if made before player is ready
+    private OnEndOfMediaHandler onEndOfMediaHandler; // Callback for when media ends
 
     // --- Observable Properties ---
     // Wraps the MediaPlayer status, providing a read-only property.
@@ -110,6 +112,14 @@ public class PlayerService {
     }
 
     // --- Public Service Methods ---
+
+    /**
+     * Sets a handler to be called when the current media finishes playing.
+     * @param handler The handler to execute.
+     */
+    public void setOnEndOfMediaHandler(OnEndOfMediaHandler handler) {
+        this.onEndOfMediaHandler = handler;
+    }
 
     /**
      * Loads the audio file from the given Song's path and optionally prepares it
@@ -276,7 +286,7 @@ public class PlayerService {
      * This method is called internally after a new MediaPlayer is created.
      */
     private void addMediaPlayerListeners() {
-        if (mediaPlayer == null) return;
+        if (mediaPlayer == null) return; // Added return to prevent NullPointerException if mediaPlayer is null
 
         // Listener for status changes
         mediaPlayer.statusProperty().addListener((obs, oldStatus, newStatus) -> {
@@ -322,11 +332,9 @@ public class PlayerService {
             Platform.runLater(() -> {
                 System.out.println("PlayerService: End of media reached for '" +
                                    (currentSongWrapper.get() != null ? currentSongWrapper.get().getTitle() : "media") + "'.");
-                // Consider notifying a controller or service to handle next song in queue
-                // For now, behavior might be to stop or await further action.
-                // If MainController.playNextSong(true) is the desired action:
-                // This would require a callback or event bus, or passing MainController instance.
-                // For simplicity, current behavior is likely handled by UI controllers listening to status/EOM.
+                if (onEndOfMediaHandler != null) {
+                    onEndOfMediaHandler.handle();
+                }
             });
         });
 

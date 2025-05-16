@@ -124,6 +124,21 @@ public class MainController implements Initializable {
             fullscreenViewController.initializeBindingsAndListeners();
         } else { System.err.println("MainController WARNING: FullscreenViewController is null."); }
 
+        // Set the end of media handler for PlayerService
+        if (playerService != null) {
+            playerService.setOnEndOfMediaHandler(() -> {
+                System.out.println("MainController: EndOfMediaHandler triggered.");
+                Song nextSong = queueService.getNextSong(); // This also removes the song from the queue
+                if (nextSong != null) {
+                    System.out.println("MainController: Playing next song from queue: " + nextSong.getTitle());
+                    playerService.loadSong(nextSong, true); // Autoplay next song
+                } else {
+                    System.out.println("MainController: Queue is empty. Clearing player to 'no song' state.");
+                    playerService.loadSong(null, false); // Load null to clear player
+                }
+            });
+        }
+
         // Apply initial theme based on the default state (e.g., normal view's theme button)
         ToggleButton initialThemeButton = (normalViewController != null) ? normalViewController.getThemeToggleButton() : 
                                           ((fullscreenViewController != null) ? fullscreenViewController.getThemeToggleButton() : null);
