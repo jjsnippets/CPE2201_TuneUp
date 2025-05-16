@@ -1,0 +1,29 @@
+/* ========== NORMAL VIEW SPECIFIC STYLES ========== */
+
+/* This file contains styles that are specific to the normal view and not already covered by component styles */
+
+/* Main container styles */
+.normal-view-root-pane {
+    -fx-padding: 5px;
+}
+
+/* Normal view specific control sizes */
+.normal-view-button {
+    -fx-min-width: 80px;
+}
+
+.normal-view-play-button {
+    -fx-min-width: 100px;
+}
+
+/* Normal view divider styles */
+.normal-view-divider {
+    -fx-background-color: #CCCCCC;
+    -fx-pref-height: 1px;
+}
+
+.dark-mode .normal-view-divider {
+    -fx-background-color: #444444;
+}
+
+/* Add any other normal view specific styles here that are not general component styles */

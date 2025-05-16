@@ -1,0 +1,17 @@
+/* ========== LIGHT THEME STYLES ========== */
+
+/* Root application styling */
+.root-pane {
+    -fx-base: #ECEFF1;
+    -fx-background: #FFFFFF;
+    -fx-control-inner-background: #FFFFFF;
+    -fx-text-fill: #212121;
+}
+
+.section-label {
+    -fx-text-fill: #1E88E5;
+}
+
+/* This file imports all component-specific styles for light theme.
+   The individual component CSS files will handle both light and dark modes,
+   but this file ensures the base theme is properly set for light mode. */

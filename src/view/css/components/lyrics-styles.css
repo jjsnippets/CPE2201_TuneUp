@@ -1,0 +1,55 @@
+/* ========== LYRICS STYLES ========== */
+
+/* Light mode lyrics styles */
+.lyrics-container {
+    -fx-background-color: #F5F5F5;
+    -fx-padding: 15px;
+    -fx-border-color: #E0E0E0;
+    -fx-border-width: 1px;
+    -fx-border-radius: 3px;
+}
+
+.current-lyric {
+    -fx-font-size: 1.8em;
+    -fx-font-weight: bold;
+    -fx-text-fill: #0D47A1;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 5, 0.0, 0, 1);
+}
+
+.other-lyric {
+    -fx-font-size: 1.1em;
+    -fx-text-fill: #607D8B;
+    -fx-opacity: 0.8;
+}
+
+/* Dark mode lyrics styles */
+.dark-mode .lyrics-container {
+    -fx-background-color: #37474F;
+    -fx-border-color: #546E7A;
+}
+
+.dark-mode .current-lyric {
+    -fx-text-fill: #4CAF50;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.5), 5, 0.0, 0, 1);
+}
+
+.dark-mode .current-lyric .text {
+    -fx-fill: #4CAF50;
+}
+
+.dark-mode .other-lyric {
+    -fx-text-fill: #B0BEC5;
+}
+
+.dark-mode .other-lyric .text {
+    -fx-fill: #B0BEC5;
+}
+
+/* Lyrics scrollbar customization */
+.dark-mode .lyrics-container .scroll-bar {
+    -fx-background-color: #37474F;
+}
+
+.dark-mode .lyrics-container .scroll-bar .thumb {
+    -fx-background-color: #546E7A;
+}

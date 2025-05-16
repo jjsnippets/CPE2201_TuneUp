@@ -23,7 +23,7 @@
     It is intended to be included within a parent FXML (e.g., using <fx:include>)
     and managed by its own controller (e.g., NormalViewController).
 -->
-<BorderPane fx:id="normalViewRootPane" prefHeight="700.0" prefWidth="1000.0" styleClass="root-pane" xmlns="http://javafx.com/javafx/19" xmlns:fx="http://javafx.com/fxml/1" fx:controller="controller.NormalViewController">
+<BorderPane fx:id="normalViewRootPane" prefHeight="700.0" prefWidth="1000.0" styleClass="root-pane" stylesheets="@css/base.css, @css/themes/light-theme.css, @css/components/common-components.css, @css/components/table-styles.css, @css/components/queue-styles.css, @css/components/lyrics-styles.css, @css/components/player-controls.css, @css/components/scrollbar-styles.css, @css/components/normal-view.css" xmlns="http://javafx.com/javafx/19" xmlns:fx="http://javafx.com/fxml/1" fx:controller="controller.NormalViewController">
     <center>
         <SplitPane dividerPositions="0.35" prefHeight="160.0" prefWidth="200.0" BorderPane.alignment="CENTER">
             <items>

@@ -1,0 +1,10 @@
+/* ========== DARK THEME STYLES ========== */
+
+/* This file contains dark theme overrides that apply globally.
+   Component-specific dark theme styles are in their respective component CSS files,
+   applied when the .dark-mode class is present on the root element. */
+
+/* The .dark-mode class itself is defined in base.css */
+
+/* No additional styling needed here as all dark mode styles are defined 
+   in base.css and component-specific stylesheets with .dark-mode selectors */

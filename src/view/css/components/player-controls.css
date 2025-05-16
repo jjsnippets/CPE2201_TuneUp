@@ -1,0 +1,104 @@
+/* ========== PLAYER CONTROLS STYLES ========== */
+
+/* Light mode player controls */
+.time-label {
+    -fx-font-size: 0.95em;
+    -fx-text-fill: #37474F;
+    -fx-font-family: "Consolas", monospace;
+}
+
+.now-playing-bar {
+    -fx-background-color: #ECEFF1;
+    -fx-padding: 5px 10px;
+    -fx-border-color: #CFD8DC;
+    -fx-border-width: 1 0 1 0;
+}
+
+.now-playing-label-title {
+    -fx-font-weight: bold;
+    -fx-text-fill: #37474F;
+    -fx-padding: 0 5 0 0;
+}
+
+.now-playing-label-info {
+    -fx-text-fill: #37474F;
+}
+
+.control-button-bar {
+    -fx-background-color: #E0E0E0;
+    -fx-padding: 8px;
+    -fx-border-color: #BDBDBD;
+    -fx-border-width: 1 0 0 0;
+}
+
+.slider .track {
+    -fx-background-color: #B0BEC5;
+    -fx-background-radius: 3px;
+}
+
+.slider .thumb {
+    -fx-background-color: #546E7A;
+    -fx-background-radius: 5px;
+}
+
+.lyric-offset-button {
+    -fx-font-size: 0.9em;
+    -fx-min-width: 30px;
+    -fx-pref-width: 30px;
+    -fx-max-width: 30px;
+    -fx-border-width: 1px;
+    -fx-border-radius: 3px;
+    -fx-background-radius: 3px;
+    -fx-padding: 4px 8px;
+}
+
+.lyric-offset-label {
+    -fx-font-size: 12px;
+    -fx-text-fill: black;
+    -fx-min-width: 60px;
+    -fx-pref-width: 60px;
+    -fx-alignment: center;
+}
+
+/* Dark mode player controls */
+.dark-mode .time-label {
+    -fx-text-fill: #FFFFFF;
+}
+
+.dark-mode .time-label .text {
+    -fx-fill: #FFFFFF;
+    -fx-effect: dropshadow(gaussian, rgba(255,255,255,0.3), 1, 0.0, 0, 1);
+}
+
+.dark-mode .now-playing-bar {
+    -fx-background-color: #263238;
+    -fx-border-color: #37474F;
+}
+
+.dark-mode .now-playing-label-title,
+.dark-mode .now-playing-label-info {
+    -fx-text-fill: #FFFFFF;
+}
+
+.dark-mode .now-playing-label-title .text,
+.dark-mode .now-playing-label-info .text {
+    -fx-fill: #FFFFFF;
+    -fx-effect: dropshadow(gaussian, rgba(255,255,255,0.3), 1, 0.0, 0, 1);
+}
+
+.dark-mode .control-button-bar {
+    -fx-background-color: #37474F;
+    -fx-border-color: #2C3A40;
+}
+
+.dark-mode .slider .track {
+    -fx-background-color: #455A64;
+}
+
+.dark-mode .slider .thumb {
+    -fx-background-color: #90A4AE;
+}
+
+.dark-mode .lyric-offset-label {
+    -fx-text-fill: white;
+}

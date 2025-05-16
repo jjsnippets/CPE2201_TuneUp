@@ -1,0 +1,45 @@
+/* ========== GENERAL STYLES ========== */
+.root-pane {
+    -fx-font-family: "Segoe UI", Arial, sans-serif;
+}
+
+.section-label {
+    -fx-font-size: 1.1em;
+    -fx-font-weight: bold;
+    -fx-padding: 5 0 2 0;
+}
+
+/* Styles that are applied globally by .dark-mode class being on root */
+.dark-mode {
+    -fx-base: #3c3f41;
+    -fx-background: #2b2b2b;
+    -fx-control-inner-background: #3c3f41; /* Default for controls in dark mode */
+    -fx-text-fill: #e0e0e0; /* Default text fill for dark mode */
+}
+
+.dark-mode .root-pane {
+    -fx-background: #2b2b2b; /* Ensure root pane background is dark */
+}
+
+.dark-mode .label {
+    -fx-text-fill: #e0e0e0; /* General label text color in dark mode */
+}
+
+.dark-mode .section-label {
+    -fx-text-fill: #64B5F6; /* Section label specific text color in dark mode */
+}
+
+.dark-mode .split-pane {
+    -fx-background-color: #2b2b2b;
+    -fx-border-color: #2b2b2b; /* Match background or slightly different for definition */
+}
+
+.dark-mode .split-pane > .split-pane-divider {
+    -fx-background-color: #444444; /* Darker divider */
+    -fx-border-color: #444444;
+}
+
+.dark-mode .anchor-pane {
+    -fx-background-color: #2b2b2b; /* Ensure anchor panes match dark background */
+    -fx-border-color: #2b2b2b;
+}

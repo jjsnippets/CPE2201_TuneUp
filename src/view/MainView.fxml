@@ -9,7 +9,7 @@
     The actual UI for normal and fullscreen modes are defined in
     NormalView.fxml and FullscreenView.fxml respectively.
 -->
-<StackPane fx:id="rootStackPane" xmlns="http://javafx.com/javafx/19" xmlns:fx="http://javafx.com/fxml/1" fx:controller="controller.MainController">
+<StackPane fx:id="rootStackPane" stylesheets="@css/base.css" xmlns="http://javafx.com/javafx/19" xmlns:fx="http://javafx.com/fxml/1" fx:controller="controller.MainController">
     <children>
         <!-- 
             fx:id="normalView" allows the MainController to get a reference to the root node of NormalView.fxml.

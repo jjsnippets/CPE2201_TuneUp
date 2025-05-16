@@ -1,0 +1,114 @@
+/* ========== TABLE STYLES ========== */
+
+/* Light mode table styles */
+.table-view {
+    -fx-border-color: #B0BEC5;
+    -fx-border-width: 1px;
+    -fx-background-color: #FFFFFF;
+}
+
+.table-view .column-header-background {
+    -fx-background-color: #E0E0E0;
+}
+
+.table-view .column-header .label {
+    -fx-text-fill: #37474F;
+    -fx-font-weight: bold;
+}
+
+.table-view .table-row-cell {
+    -fx-background-color: -fx-control-inner-background;
+    -fx-text-fill: -fx-text-background-color;
+}
+
+.table-view .table-row-cell:selected {
+    -fx-background-color: #0078D7;
+    -fx-text-fill: white;
+}
+
+.table-view .scroll-bar {
+    -fx-background-color: #F5F5F5;
+    -fx-border-width: 0;
+    -fx-pref-width: 12px;
+}
+
+.table-view .scroll-bar .thumb {
+    -fx-background-color: #B0BEC5;
+    -fx-background-radius: 4px;
+}
+
+.table-view .corner,
+.table-view .virtual-flow {
+    -fx-background-color: #FFFFFF;
+}
+
+/* Dark mode table styles */
+.dark-mode .table-view {
+    -fx-border-color: #1E1E1E;
+    -fx-background-color: #212121;
+    -fx-control-inner-background: #262626;
+}
+
+.dark-mode .table-view .column-header-background {
+    -fx-background-color: #1A1A1A;
+}
+
+.dark-mode .table-view .column-header-background .filler {
+    -fx-background-color: #1A1A1A;
+}
+
+.dark-mode .table-view .column-header {
+    -fx-background-color: #1A1A1A;
+    -fx-border-color: #444444;
+    -fx-border-width: 0 1px 1px 0;
+}
+
+.dark-mode .table-view .column-header .label {
+    -fx-text-fill: #FFFFFF;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(gaussian, rgba(255,255,255,0.3), 1, 0.0, 0, 1);
+}
+
+.dark-mode .table-view .table-row-cell {
+    -fx-background-color: #262626;
+    -fx-border-color: #333333;
+}
+
+.dark-mode .table-view .table-row-cell .text {
+    -fx-fill: white;
+}
+
+.dark-mode .table-view .table-row-cell:selected {
+    -fx-background-color: #0277BD;
+}
+
+.dark-mode .table-view .table-row-cell:selected .text {
+    -fx-fill: white;
+}
+
+.dark-mode .table-view .scroll-bar {
+    -fx-background-color: #212121;
+    -fx-border-width: 0;
+    -fx-pref-width: 12px;
+}
+
+.dark-mode .table-view .scroll-bar .thumb {
+    -fx-background-color: #4F5B62;
+    -fx-background-radius: 4px;
+}
+
+.dark-mode .table-view .virtual-flow .scroll-bar .thumb {
+    -fx-background-color: #4F5B62;
+}
+
+.dark-mode .table-view .corner,
+.dark-mode .table-view .virtual-flow {
+    -fx-background-color: #262626;
+}
+
+.dark-mode .table-view .show-hide-column-image,
+.dark-mode .table-view .column-header-background .show-hide-columns-button,
+.dark-mode .table-view .column-drag-header,
+.dark-mode .table-view .column-header-background .filler {
+    -fx-background-color: #1A1A1A;
+}

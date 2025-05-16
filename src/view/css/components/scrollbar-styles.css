@@ -1,0 +1,112 @@
+/* ========== SCROLLBAR STYLES ========== */
+
+/* Light mode scrollbar styles */
+.scroll-bar {
+    -fx-background-color: #F0F0F0;
+    -fx-border-color: #E0E0E0;
+    -fx-border-width: 0;
+}
+
+.scroll-bar .thumb {
+    -fx-background-color: #B0BEC5;
+    -fx-background-radius: 4px;
+}
+
+.scroll-bar .thumb:hover {
+    -fx-background-color: #90A4AE;
+}
+
+.scroll-bar .thumb:pressed {
+    -fx-background-color: #78909C;
+}
+
+.scroll-bar .increment-button,
+.scroll-bar .decrement-button {
+    -fx-background-color: #F0F0F0;
+    -fx-border-color: #E0E0E0;
+    -fx-border-width: 0;
+}
+
+.scroll-bar .increment-arrow,
+.scroll-bar .decrement-arrow {
+    -fx-background-color: #607D8B;
+    -fx-effect: null;
+}
+
+.scroll-bar .increment-button:hover .increment-arrow,
+.scroll-bar .decrement-button:hover .decrement-arrow {
+    -fx-background-color: #455A64;
+}
+
+.scroll-bar .track {
+    -fx-background-color: #F5F5F5;
+}
+
+.scroll-pane {
+    -fx-background-color: transparent;
+    -fx-border-color: #E0E0E0;
+    -fx-border-width: 0;
+}
+
+.scroll-pane > .viewport {
+    -fx-background-color: transparent;
+}
+
+.scroll-pane .corner,
+.table-view .corner,
+.list-view .corner {
+    -fx-background-color: #F2F2F2;
+}
+
+/* Dark mode scrollbar styles */
+.dark-mode .scroll-bar {
+    -fx-background-color: #2A2A2A;
+    -fx-border-color: #333333;
+    -fx-border-width: 0;
+}
+
+.dark-mode .scroll-bar .thumb {
+    -fx-background-color: #4F5B62;
+    -fx-background-radius: 4px;
+}
+
+.dark-mode .scroll-bar .thumb:hover {
+    -fx-background-color: #607D8B;
+}
+
+.dark-mode .scroll-bar .thumb:pressed {
+    -fx-background-color: #78909C;
+}
+
+.dark-mode .scroll-bar .increment-button,
+.dark-mode .scroll-bar .decrement-button {
+    -fx-background-color: #2A2A2A;
+    -fx-border-color: #333333;
+    -fx-border-width: 0;
+}
+
+.dark-mode .scroll-bar .increment-arrow,
+.dark-mode .scroll-bar .decrement-arrow {
+    -fx-background-color: #B0BEC5;
+    -fx-effect: null;
+}
+
+.dark-mode .scroll-bar .track {
+    -fx-background-color: #262626;
+}
+
+.dark-mode .scroll-pane {
+    -fx-background-color: transparent;
+    -fx-border-color: #333333;
+    -fx-border-width: 0;
+}
+
+.dark-mode .scroll-pane > .viewport {
+    -fx-background-color: transparent;
+}
+
+.dark-mode .scroll-pane .corner,
+.dark-mode .table-view .corner,
+.dark-mode .list-view .corner {
+    -fx-background-color: #1E1E1E;
+}
