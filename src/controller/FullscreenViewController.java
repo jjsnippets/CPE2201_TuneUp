@@ -47,7 +47,7 @@ public class FullscreenViewController implements Initializable, MainController.S
     @FXML private Button fullscreenPlayPauseButton;
     @FXML private Button fullscreenSkipButton;
     @FXML private Button fullscreenExitButton;
-    @FXML private ToggleButton fullscreenThemeToggleButton;
+    @FXML private Button fullscreenThemeButton;
     @FXML private Button fullscreenStopButton;
     @FXML private Button fullscreenIncreaseOffsetButton;
     @FXML private Label fullscreenLyricOffsetLabel;
@@ -259,8 +259,8 @@ public class FullscreenViewController implements Initializable, MainController.S
     }
 
     @FXML private void handleFullscreenThemeToggle() {
-        if (mainController != null && fullscreenThemeToggleButton != null) {
-            mainController.toggleTheme(fullscreenThemeToggleButton.isSelected(), fullscreenThemeToggleButton);
+        if (mainController != null) {
+            mainController.cycleTheme(); 
         }
     }
 
@@ -284,7 +284,7 @@ public class FullscreenViewController implements Initializable, MainController.S
 
     // --- Getter for MainController to sync theme button ---
     @Override
-    public ToggleButton getThemeToggleButton() {
-        return fullscreenThemeToggleButton;
+    public Button getThemeButton() {
+        return fullscreenThemeButton;
     }
 }

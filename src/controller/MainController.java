@@ -8,7 +8,6 @@ import javafx.fxml.Initializable;
 import javafx.scene.Node;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
-import javafx.scene.control.ToggleButton;
 import javafx.scene.layout.StackPane;
 import javafx.scene.media.MediaPlayer; // For MediaPlayer.Status
 import javafx.stage.Stage;
@@ -51,6 +50,7 @@ public class MainController implements Initializable {
     // Shared state for lyric offset, managed by this central controller
     private int currentSongLiveOffsetMs = 0;
     public static final int LYRIC_OFFSET_ADJUSTMENT_STEP = 100;
+    private boolean isDarkMode = false;
 
 
     @Override
@@ -69,7 +69,6 @@ public class MainController implements Initializable {
                     if(fullscreenView != null) fullscreenView.setVisible(true);
                     if (fullscreenViewController != null) {
                         syncThemeToggleStates(normalViewController, fullscreenViewController);
-                        // No need to set selected state for fullscreenExitButton (now a Button)
                         fullscreenViewController.updateUIDisplay();
                     }
                 } else { // Exited fullscreen
@@ -77,7 +76,6 @@ public class MainController implements Initializable {
                     if(normalView != null) normalView.setVisible(true);
                     if (normalViewController != null) {
                         syncThemeToggleStates(fullscreenViewController, normalViewController);
-                        // No need to set selected state for fullscreenToggleButton (now a Button)
                         normalViewController.updateUIDisplay();
                     }
                 }
@@ -87,10 +85,10 @@ public class MainController implements Initializable {
     
 
     private void syncThemeToggleStates(SubController source, SubController target) {
-        if (source != null && source.getThemeToggleButton() != null &&
-            target != null && target.getThemeToggleButton() != null) {
-            target.getThemeToggleButton().setSelected(source.getThemeToggleButton().isSelected());
-            target.getThemeToggleButton().setText(source.getThemeToggleButton().getText());
+        if (source != null && source.getThemeButton() != null &&
+            target != null && target.getThemeButton() != null) {
+            // For Buttons, we primarily sync the text that indicates the next state.
+            target.getThemeButton().setText(source.getThemeButton().getText());
         }
     }
 
@@ -139,17 +137,9 @@ public class MainController implements Initializable {
             });
         }
 
-        // Apply initial theme based on the default state (e.g., normal view's theme button)
-        ToggleButton initialThemeButton = (normalViewController != null) ? normalViewController.getThemeToggleButton() : 
-                                          ((fullscreenViewController != null) ? fullscreenViewController.getThemeToggleButton() : null);
-        if (initialThemeButton != null) {
-            applyTheme(initialThemeButton.isSelected()); // Applies to rootStackPane
-            // Ensure both buttons reflect this initial state text-wise
-            String initialText = initialThemeButton.isSelected() ? "Light Mode" : "Dark Mode";
-            if (normalViewController != null && normalViewController.getThemeToggleButton() != null) normalViewController.getThemeToggleButton().setText(initialText);
-            if (fullscreenViewController != null && fullscreenViewController.getThemeToggleButton() != null) fullscreenViewController.getThemeToggleButton().setText(initialText);
-
-        }
+        // Apply initial theme based on the default state
+        applyTheme(isDarkMode); // Apply initial theme
+        updateThemeButtonTexts(); // Set initial button texts
         
         // Update initial UI state for the visible controller
         Platform.runLater(() -> { // Defer UI updates slightly to ensure all init is done
@@ -169,16 +159,19 @@ public class MainController implements Initializable {
         }
     }
 
-    public void toggleTheme(boolean isDarkMode, ToggleButton sourceButton) {
+    public void cycleTheme() {
+        isDarkMode = !isDarkMode;
         applyTheme(isDarkMode);
+        updateThemeButtonTexts();
+    }
+
+    private void updateThemeButtonTexts(){
         String buttonText = isDarkMode ? "Light Mode" : "Dark Mode";
-        if (normalViewController != null && normalViewController.getThemeToggleButton() != null) {
-            normalViewController.getThemeToggleButton().setSelected(isDarkMode);
-            normalViewController.getThemeToggleButton().setText(buttonText);
+        if (normalViewController != null && normalViewController.getThemeButton() != null) {
+            normalViewController.getThemeButton().setText(buttonText);
         }
-        if (fullscreenViewController != null && fullscreenViewController.getThemeToggleButton() != null) {
-            fullscreenViewController.getThemeToggleButton().setSelected(isDarkMode);
-            fullscreenViewController.getThemeToggleButton().setText(buttonText);
+        if (fullscreenViewController != null && fullscreenViewController.getThemeButton() != null) {
+            fullscreenViewController.getThemeButton().setText(buttonText);
         }
     }
     
@@ -422,7 +415,6 @@ public class MainController implements Initializable {
     // Interface for sub-controllers to expose common methods (like getThemeToggleButton)
     // This is a simple way to avoid instanceof checks or more complex structures for now.
     public interface SubController {
-        ToggleButton getThemeToggleButton();
-        // Potentially other common methods like updateUIDisplay, initializeBindingsAndListeners
+        Button getThemeButton();
     }
 }

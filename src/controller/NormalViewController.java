@@ -67,7 +67,7 @@ public class NormalViewController implements Initializable, MainController.SubCo
     @FXML private Button stopButton;
     @FXML private Button skipButton;
     @FXML private Button fullscreenToggleButton;
-    @FXML private ToggleButton themeToggleButton;
+    @FXML private Button themeButton;
 
     @FXML private Button increaseOffsetButton;
     @FXML private Label lyricOffsetLabel;
@@ -387,8 +387,8 @@ public class NormalViewController implements Initializable, MainController.SubCo
     }
     
     @FXML private void handleThemeToggle() {
-        if (mainController != null && themeToggleButton != null) {
-            mainController.toggleTheme(themeToggleButton.isSelected(), themeToggleButton);
+        if (mainController != null) {
+            mainController.cycleTheme();
         }
     }
 
@@ -411,8 +411,8 @@ public class NormalViewController implements Initializable, MainController.SubCo
     
     // --- Getter for MainController to sync theme button & access selected song ---
     @Override
-    public ToggleButton getThemeToggleButton() {
-        return themeToggleButton;
+    public Button getThemeButton() {
+        return themeButton;
     }
     
     public Song getCurrentlySelectedSong() {
