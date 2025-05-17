@@ -1,19 +1,18 @@
-package service; // Define the package for service classes
+package service;
 
 // --- JavaFX Imports ---
-import javafx.application.Platform; // For potential future use or specific threading needs
+import javafx.application.Platform;
 import javafx.beans.property.ReadOnlyLongProperty;
 import javafx.beans.property.ReadOnlyLongWrapper;
 import javafx.beans.property.ReadOnlyObjectProperty;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
-import javafx.scene.media.MediaException; // For specific media-related errors
+import javafx.scene.media.MediaException;
 import javafx.util.Duration;
 
-// --- Model Import ---
-import model.Song; // Import the Song model
-import service.OnEndOfMediaHandler; // Import the new functional interface
+// --- Model Imports ---
+import model.Song;
 
 // --- Java IO Imports ---
 import java.io.File;
@@ -22,11 +21,11 @@ import java.io.IOException;
 
 /**
  * Service class that encapsulates JavaFX MediaPlayer functionality.
- * Manages loading audio (FR1.1), playback controls (FR1.3, FR1.4), seeking (FR1.7),
- * and exposes observable properties for playback state, time (FR1.6), and the current song.
+ * Manages loading audio (enabling FR1.1), playback controls (FR1.3 for play/pause, FR1.4 for stop),
+ * seeking (FR1.7), and exposes observable properties for playback state and time (FR1.6),
+ * and the current song.
  * Includes logic for auto-playing a song once it's ready after loading.
  * Abstracts low-level JavaFX media handling from controllers.
- * Corresponds to SRS sections related to media playback.
  */
 public class PlayerService {
 
@@ -56,7 +55,8 @@ public class PlayerService {
     // --- Public Read-Only Property Accessors ---
 
     /**
-     * @return A read-only observable property for the MediaPlayer's status. (Corresponds to FR1.6 aspect)
+     * @return A read-only observable property for the MediaPlayer's status.
+     * <p>Supports FR1.6 by providing playback state information.
      */
     public final ReadOnlyObjectProperty<MediaPlayer.Status> statusProperty() {
         return statusWrapper.getReadOnlyProperty();
@@ -70,7 +70,8 @@ public class PlayerService {
     }
 
     /**
-     * @return A read-only observable property for the current playback time in milliseconds. (FR1.6)
+     * @return A read-only observable property for the current playback time in milliseconds.
+     * <p>Supports FR1.6 by providing current time information.
      */
     public final ReadOnlyLongProperty currentTimeProperty() {
         return currentTimeMillisWrapper.getReadOnlyProperty();
@@ -84,7 +85,8 @@ public class PlayerService {
     }
 
     /**
-     * @return A read-only observable property for the total duration of the media in milliseconds. (FR1.6 aspect)
+     * @return A read-only observable property for the total duration of the media in milliseconds.
+     * <p>Supports FR1.6 by providing total duration information.
      */
     public final ReadOnlyLongProperty totalDurationProperty() {
         return totalDurationMillisWrapper.getReadOnlyProperty();
@@ -125,7 +127,7 @@ public class PlayerService {
      * Loads the audio file from the given Song's path and optionally prepares it
      * for playback upon readiness. Disposes of any existing MediaPlayer.
      * Updates the currentSongProperty upon successful loading initiation.
-     * Implements FR1.1 (Load audio file).
+     * <p>SRS: FR1.1 (enables playing audio by loading the track).
      *
      * @param song The Song object to load. Can be null to unload/reset the player.
      * @param startPlayback When true, playback will begin automatically once the media is ready.
@@ -198,7 +200,8 @@ public class PlayerService {
     }
 
     /**
-     * Starts or resumes playback of the currently loaded song. (FR1.3)
+     * Starts or resumes playback of the currently loaded song.
+     * <p>SRS: FR1.3.
      */
     public void play() {
         if (mediaPlayer != null &&
@@ -217,7 +220,8 @@ public class PlayerService {
     }
 
     /**
-     * Pauses the currently playing song. (FR1.4)
+     * Pauses the currently playing song.
+     * <p>SRS: FR1.3.
      * If called, it cancels any pending auto-play.
      */
     public void pause() {
@@ -230,7 +234,8 @@ public class PlayerService {
     }
 
     /**
-     * Stops playback and resets the playback position to the beginning. (FR1.5)
+     * Stops playback and resets the playback position to the beginning.
+     * <p>SRS: FR1.4.
      * If called, it cancels any pending auto-play.
      */
     public void stop() {
@@ -245,7 +250,8 @@ public class PlayerService {
     }
 
     /**
-     * Seeks to the specified position in the media. (FR1.7)
+     * Seeks to the specified position in the media.
+     * <p>SRS: FR1.7.
      *
      * @param millis The position to seek to, in milliseconds.
      */
@@ -293,12 +299,12 @@ public class PlayerService {
         if (mediaPlayer == null) return; // Added return to prevent NullPointerException if mediaPlayer is null
 
         // Listener for status changes
-        mediaPlayer.statusProperty().addListener((obs, oldStatus, newStatus) -> {
+        mediaPlayer.statusProperty().addListener((@SuppressWarnings("unused") var obs, @SuppressWarnings("unused") var oldStatus, var newStatus) -> {
             Platform.runLater(() -> statusWrapper.set(newStatus));
         });
 
         // Listener for current time changes
-        mediaPlayer.currentTimeProperty().addListener((obs, oldTime, newTime) -> {
+        mediaPlayer.currentTimeProperty().addListener((@SuppressWarnings("unused") var obs, @SuppressWarnings("unused") var oldTime, var newTime) -> {
             Platform.runLater(() -> currentTimeMillisWrapper.set((long) newTime.toMillis()));
         });
 
@@ -312,7 +318,9 @@ public class PlayerService {
                 String songTitle = (currentSong != null) ? currentSong.getTitle() : "media";
 
                 System.out.println("PlayerService: Media ready for '" + songTitle +
-                                   "'. Duration: " + mediaPlayer.getTotalDuration().toMillis() + "ms");                if (pendingSeekMillis != null) {
+                                   "'. Duration: " + mediaPlayer.getTotalDuration().toMillis() + "ms");
+                
+                if (pendingSeekMillis != null) {
                     System.out.println("PlayerService: Applying pending seek to " + pendingSeekMillis + "ms for '" + songTitle + "'.");
                     mediaPlayer.seek(Duration.millis(pendingSeekMillis));
                     // Also update the current time wrapper to ensure lyrics update for pending seeks
@@ -352,7 +360,7 @@ public class PlayerService {
         });
 
         // Listener for total duration changes (though setOnReady is often primary for initial duration)
-        mediaPlayer.totalDurationProperty().addListener((obs, oldDuration, newDuration) -> {
+        mediaPlayer.totalDurationProperty().addListener((@SuppressWarnings("unused") var obs, @SuppressWarnings("unused") var oldDuration, var newDuration) -> {
             if (newDuration != null && newDuration != Duration.UNKNOWN) {
                 Platform.runLater(() -> totalDurationMillisWrapper.set((long) newDuration.toMillis()));
             }

@@ -14,85 +14,130 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicLong; // Used to pass offset by reference effectively
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Utility class for parsing LRC (.lrc) files.
- * Extracts timed lyric lines, a single offset ([offset:...]), and specific metadata tags.
+ * Utility class for parsing LRC (LyRiCs) files, a common format for synchronized lyrics.
+ * This non-instantiable class provides static methods to extract timed lyric lines
+ * and metadata tags (such as title, artist, album, genre, duration, and a global offset).
+ *
+ * Conforms to:
+ * <ul>
+ *   <li>FR3.1: Parse LRC files for lyrics and metadata.</li>
+ * </ul>
+ *
+ * The parser handles:
+ * <ul>
+ *   <li>Time tags for lyrics: {@code [mm:ss.xx]} or {@code [mm:ss.xxx]} (xx for centiseconds, xxx for milliseconds).</li>
+ *   <li>Metadata tags: {@code [tag:value]}, e.g., {@code [ti:Song Title]}, {@code [ar:Artist Name]},
+ *   {@code [al:Album Name]}, {@code [length:mm:ss.xxx]} (for song duration),
+ *   {@code [genre:Song Genre]}, and {@code [offset:value]} (for global lyric timing adjustment in milliseconds).<li>
+ * </ul>
+ *
+ * All file operations are performed using UTF-8 encoding.
  */
-public class LrcParser {
+public final class LrcParser {
 
-    // Regex for timed lyric lines [mm:ss.xx] or [mm:ss.xxx]
+    // Regex for timed lyric lines: [mm:ss.xx] or [mm:ss.xxx]
+    // Group 1: minutes, Group 2: seconds, Group 3: centiseconds or milliseconds
     private static final Pattern TIME_TAG_PATTERN = Pattern.compile(
-            "\\[(\\d{2}):(\\d{2})[.:](\\d{2,3})]"); // Group 1:min, 2:sec, 3:ms/cs
+            "\\[(\\d{2}):(\\d{2})[.:](\\d{2,3})\\]");
 
-    // Updated to include only 'offset' for metadata parsing related to this functionality.
-    // Other tags like 'user_offset' are removed from specific parsing here.
-    private static final Pattern METADATA_TAG_PATTERN_FOR_TAGS = Pattern.compile(
-            "^\\[(ti|ar|al|length|genre|offset):(.*)\\]\\s*$"); // Group 1:key, 2:value
+    // Regex for standard metadata tags: [key:value]
+    // Group 1: key (e.g., "ti", "ar", "al", "length", "genre", "offset")
+    // Group 2: value
+    private static final Pattern METADATA_TAG_PATTERN = Pattern.compile(
+            "^\\[(ti|ar|al|length|genre|offset):(.*)\\]\\s*$", Pattern.CASE_INSENSITIVE);
 
-    // This is the single offset tag we care about for lyric timing.
+    // Regex specifically for the [offset:...] tag, used for global lyric timing adjustment.
+    // Group 1: offset value (milliseconds)
     private static final Pattern LYRIC_OFFSET_TAG_PATTERN = Pattern.compile(
-            "^\\[offset:(.*)\\]\\s*$", Pattern.CASE_INSENSITIVE); // Group 1:value
-
-    // Private constructor to prevent instantiation.
-    private LrcParser() { }
+            "^\\[offset:(.*)\\]\\s*$", Pattern.CASE_INSENSITIVE);
 
     /**
-     * Container for results from parsing an LRC file for lyrics content and its single offset.
+     * Private constructor to prevent instantiation of this utility class.
      */
-    public static class LrcParseResult {
-        public final List<LyricLine> lines;
-        public final long offsetMillis;  // From [offset:...]
-
-        public LrcParseResult(List<LyricLine> lines, long offsetMillis) {
-            this.lines = (lines != null) ? Collections.unmodifiableList(lines) : Collections.emptyList();
-            this.offsetMillis = offsetMillis;
-        }
-        
-        public List<LyricLine> getLines() { return lines; }
-        public long getOffsetMillis() { return offsetMillis; }
+    private LrcParser() {
+        // This class is not meant to be instantiated.
     }
 
     /**
-     * Parses the given LRC file to extract timed lyric lines and the single [offset:...] value.
+     * Container for the results of parsing an LRC file, specifically holding the list of
+     * timed lyric lines and the global offset value defined by an {@code [offset:...]} tag.
+     */
+    public static class LrcParseResult {
+        private final List<LyricLine> lines;
+        private final long offsetMillis;  // From [offset:...] tag, defaults to 0 if not found.
+
+        /**
+         * Constructs an LrcParseResult.
+         * @param lines A list of {@link LyricLine} objects. If null, an empty unmodifiable list is used.
+         * @param offsetMillis The global offset in milliseconds.
+         */
+        public LrcParseResult(List<LyricLine> lines, long offsetMillis) {
+            this.lines = (lines != null) ? Collections.unmodifiableList(new ArrayList<>(lines)) : Collections.emptyList();
+            this.offsetMillis = offsetMillis;
+        }
+
+        /**
+         * @return An unmodifiable list of parsed {@link LyricLine} objects, sorted by timestamp.
+         */
+        public List<LyricLine> getLines() {
+            return lines;
+        }
+
+        /**
+         * @return The global lyric offset in milliseconds, extracted from an {@code [offset:...]} tag.
+         *         Defaults to 0 if the tag is not present or invalid.
+         */
+        public long getOffsetMillis() {
+            return offsetMillis;
+        }
+    }
+
+    /**
+     * Parses the given LRC file to extract timed lyric lines and the global {@code [offset:...]} value.
+     * Lines are read using UTF-8 encoding. Lyric lines are sorted by their timestamps.
      *
-     * @param filePath The path to the .lrc file.
-     * @return An LrcParseResult object. Offset defaults to 0 if not found.
-     * @throws IOException If an I/O error occurs.
-     * @throws InvalidPathException If the filePath is invalid.
+     * @param filePath The absolute path to the .lrc file.
+     * @return An {@link LrcParseResult} object containing the list of {@link LyricLine}s and the global offset.
+     *         The offset defaults to 0 if no valid {@code [offset:...]} tag is found.
+     * @throws IOException If an I/O error occurs during file reading.
+     * @throws InvalidPathException If the {@code filePath} string cannot be converted to a {@link Path}.
      */
     public static LrcParseResult parseLyricsAndOffset(String filePath) throws IOException, InvalidPathException {
         List<LyricLine> lyricLines = new ArrayList<>();
-        AtomicLong parsedOffsetMillis = new AtomicLong(0); // Default to 0
+        AtomicLong parsedOffsetMillis = new AtomicLong(0); // Default to 0, updated if [offset:] tag is found.
 
         Path path = Paths.get(filePath);
         try (BufferedReader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
             String line;
             while ((line = reader.readLine()) != null) {
-                // Delegate line processing to helper method
                 processLineForLyricsAndSingleOffset(line.trim(), lyricLines, parsedOffsetMillis);
             }
         }
 
-        Collections.sort(lyricLines); // Ensure lines are sorted by timestamp
+        Collections.sort(lyricLines); // Ensure lines are sorted by timestamp.
         return new LrcParseResult(lyricLines, parsedOffsetMillis.get());
     }
-    
+
     /**
-     * Processes a single line from an LRC file for the parseLyricsAndOffset method.
-     * Updates the offset if a single [offset:...] tag is found, or adds LyricLine objects
-     * if timed lyrics are found.
+     * Processes a single line from an LRC file for the {@link #parseLyricsAndOffset(String)} method.
+     * If the line is an {@code [offset:...]} tag, it updates the {@code offsetRef}.
+     * If the line contains timed lyric tags, it parses them and adds {@link LyricLine} objects to {@code lyricLines}.
      *
-     * @param line Trimmed line content.
-     * @param lyricLines List to add parsed LyricLine objects to.
-     * @param offsetRef AtomicLong holding the current offset (updated if tag found).
+     * @param line The trimmed line content from the LRC file.
+     * @param lyricLines The list to which parsed {@link LyricLine} objects are added.
+     * @param offsetRef An {@link AtomicLong} holding the current global offset, which is updated
+     *                  if an {@code [offset:...]} tag is encountered.
      */
     private static void processLineForLyricsAndSingleOffset(String line, List<LyricLine> lyricLines,
                                                              AtomicLong offsetRef) {
-        if (line.isEmpty()) return;
+        if (line.isEmpty()) {
+            return;
+        }
 
         Matcher offsetMatcher = LYRIC_OFFSET_TAG_PATTERN.matcher(line);
         if (offsetMatcher.matches()) {
@@ -100,11 +145,11 @@ public class LrcParser {
             try {
                 offsetRef.set(Long.parseLong(offsetValueStr));
             } catch (NumberFormatException e) {
-                System.err.println("Warning: Could not parse [offset:] value in line: " + line);
+                System.err.println("Warning: Could not parse [offset:] value in line: \"" + line + "\". Error: " + e.getMessage());
             }
-            return; 
+            return; // An offset line does not contain lyrics.
         }
-        
+
         Matcher timeMatcher = TIME_TAG_PATTERN.matcher(line);
         List<Long> timestamps = new ArrayList<>();
         int lastTagEnd = 0;
@@ -121,8 +166,9 @@ public class LrcParser {
 
         if (foundTimeTag) {
             String text = line.substring(lastTagEnd).trim();
-            // Empty text lines are allowed as long as there's a timestamp
-            if (!timestamps.isEmpty()) { 
+            // Even if the text part is empty, if there are valid timestamps, add them.
+            // This handles LRC lines that might just be for timing or empty phrases.
+            if (!timestamps.isEmpty()) {
                 for (Long timestamp : timestamps) {
                     lyricLines.add(new LyricLine(timestamp, text));
                 }
@@ -131,123 +177,173 @@ public class LrcParser {
     }
 
     /**
-     * Parses metadata tags, including the single [offset:...].
-     * (Ensure this method is consistent with how offset is treated elsewhere if used for DB population)
+     * Parses metadata tags (e.g., title, artist, album, duration from {@code [length:]}, genre, global {@code [offset:]})
+     * from the specified LRC file.
+     * Metadata keys in the returned map are: "title", "artist", "album", "genre", "duration" (Integer, milliseconds),
+     * and "offset" (Long, milliseconds). If a tag is not found or its value is invalid, the corresponding
+     * map entry may be {@code null} or absent for typed values (duration, offset).
+     *
+     * @param filePath The absolute path to the .lrc file.
+     * @return A {@link Map} where keys are metadata tag names (e.g., "title", "artist") and
+     *         values are the parsed metadata values (String, Integer for duration, Long for offset).
+     * @throws IOException If an I/O error occurs during file reading.
+     * @throws InvalidPathException If the {@code filePath} string cannot be converted to a {@link Path}.
      */
     public static Map<String, Object> parseMetadataTags(String filePath) throws IOException, InvalidPathException {
         Map<String, Object> metadata = new HashMap<>();
+        // Initialize expected keys to null.
         metadata.put("title", null);
         metadata.put("artist", null);
+        metadata.put("album", null);
         metadata.put("genre", null);
-        metadata.put("duration", null); 
-        metadata.put("offset", null); // For the single [offset:...] tag
+        metadata.put("duration", null); // Will be Integer (milliseconds)
+        metadata.put("offset", null);   // Will be Long (milliseconds)
 
         Path path = Paths.get(filePath);
-        String fileName = path.getFileName().toString();
+        String fileNameForContext = path.getFileName().toString(); // For logging
 
         try (BufferedReader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
             String line;
             while ((line = reader.readLine()) != null) {
-                Matcher matcher = METADATA_TAG_PATTERN_FOR_TAGS.matcher(line.trim());
+                Matcher matcher = METADATA_TAG_PATTERN.matcher(line.trim());
                 if (matcher.matches()) {
-                    String key = matcher.group(1).toLowerCase();
+                    String key = matcher.group(1).toLowerCase().trim();
                     String value = matcher.group(2).trim();
-                    String mapKey = key;
-                    Object mapValue = value;
 
                     switch (key) {
-                        case "ti": mapKey = "title"; break;
-                        case "ar": mapKey = "artist"; break;
+                        case "ti":
+                            metadata.put("title", value);
+                            break;
+                        case "ar":
+                            metadata.put("artist", value);
+                            break;
+                        case "al":
+                            metadata.put("album", value);
+                            break;
                         case "length":
-                            mapKey = "duration";
-                            mapValue = parseDurationValue(value, fileName);
+                            Integer durationMillis = parseDurationValue(value, fileNameForContext);
+                            if (durationMillis != null) {
+                                metadata.put("duration", durationMillis);
+                            }
                             break;
-                        case "offset": // Handles the single [offset:...] tag
-                            mapKey = "offset";
-                            mapValue = parseOffsetValue(value, fileName);
+                        case "genre":
+                            metadata.put("genre", value);
                             break;
-                        case "genre": break;
-                        default: continue;
-                    }
-                    if (mapValue != null && !(mapValue instanceof String && ((String)mapValue).isEmpty()) && metadata.get(mapKey) == null) {
-                         metadata.put(mapKey, mapValue);
+                        case "offset":
+                            Long offsetMillis = parseOffsetValue(value, fileNameForContext);
+                            if (offsetMillis != null) {
+                                metadata.put("offset", offsetMillis);
+                            }
+                            break;
+                        default:
+                            // Silently ignore unknown tags, or log if necessary:
+                            // System.err.println("Info: Unknown metadata tag '" + key + "' in file: " + fileNameForContext);
+                            break;
                     }
                 }
             }
         }
-        // Type safety for string fields
-        metadata.computeIfPresent("title", (_, val) -> val instanceof String ? val : null);
-        metadata.computeIfPresent("artist", (_, val) -> val instanceof String ? val : null);
-        metadata.computeIfPresent("genre", (_, val) -> val instanceof String ? val : null);
         return metadata;
     }
 
-    // --- Helper Methods (parseLrcTimestamp, parseDurationValue, parseOffsetValue) ---
-    // These remain largely the same as in the previous version of LrcParser.java
-    // Ensure parseOffsetValue is used for the [offset:] tag.
-
     /**
-     * Parses a matched LRC time tag ([mm:ss.xx]) into milliseconds.
+     * Parses a matched LRC time tag (e.g., {@code [mm:ss.xx]} or {@code [mm:ss.xxx]}) into total milliseconds.
      *
-     * @param matcher A Matcher object where find() has just returned true for TIME_TAG_PATTERN.
-     * @return The timestamp in milliseconds, or null if parsing fails.
+     * @param matcher A {@link Matcher} object for {@link #TIME_TAG_PATTERN} where {@code find()}
+     *                has just returned {@code true}.
+     * @return The timestamp in milliseconds, or {@code null} if parsing fails or components are invalid.
      */
     private static Long parseLrcTimestamp(Matcher matcher) {
         try {
             long minutes = Long.parseLong(matcher.group(1));
             long seconds = Long.parseLong(matcher.group(2));
-            String millisStr = matcher.group(3);
-            long millis = Long.parseLong(millisStr);
-            if (millisStr.length() == 2) millis *= 10;
-            if (minutes < 0 || seconds < 0 || seconds >= 60 || millis < 0 || millis >= 1000) {
-                throw new NumberFormatException("Time component out of range");
+            String fracSecStr = matcher.group(3); // Milliseconds or centiseconds part
+            long fracSeconds = Long.parseLong(fracSecStr);
+
+            if (fracSecStr.length() == 2) { // Input is in centiseconds
+                fracSeconds *= 10; // Convert centiseconds to milliseconds
             }
-            return (minutes * 60 + seconds) * 1000 + millis;
+
+            // Validate time components
+            if (minutes < 0 || seconds < 0 || seconds >= 60 || fracSeconds < 0 || fracSeconds >= 1000) {
+                System.err.println("Warning: Invalid time components in LRC timestamp: " + matcher.group(0));
+                return null;
+            }
+            return (minutes * 60 + seconds) * 1000 + fracSeconds;
         } catch (NumberFormatException e) {
-            System.err.println("Warning: Could not parse timestamp: " + matcher.group(0) + " - " + e.getMessage());
+            System.err.println("Warning: Could not parse LRC timestamp: " + matcher.group(0) + ". Error: " + e.getMessage());
             return null;
         }
     }
 
     /**
-     * Parses the value string from an LRC [length:mm:ss.xxx] tag into milliseconds.
+     * Parses the value string from an LRC {@code [length:value]} tag into total milliseconds.
+     * The expected format for the value is "mm:ss" or "mm:ss.xx" (centiseconds) or "mm:ss.xxx" (milliseconds).
      *
-     * @param value The raw value string (e.g., "03:45.123").
-     * @param contextFileName Filename for logging purposes.
-     * @return Duration in milliseconds as an Integer, or null if parsing fails or invalid.
+     * @param value The raw time string (e.g., "03:45.12", "03:45.123", "03:45").
+     * @param contextFileName The name of the LRC file being parsed, for logging context.
+     * @return Duration in milliseconds as an {@link Integer}, or {@code null} if parsing fails,
+     *         the format is invalid, or the value represents an invalid time.
      */
     private static Integer parseDurationValue(String value, String contextFileName) {
-        try {
-            String[] timeParts = value.split(":", 2);
-            if (timeParts.length == 2) {
-                long minutes = Long.parseLong(timeParts[0].trim());
-                double secondsWithMillis = Double.parseDouble(timeParts[1].trim());
-                if (minutes < 0 || secondsWithMillis < 0.0) throw new NumberFormatException("Negative time");
-                long seconds = (long) secondsWithMillis;
-                long millis = Math.round((secondsWithMillis - seconds) * 1000);
-                if (millis >= 1000) { seconds += millis / 1000; millis %= 1000; }
+        // Regex for "mm:ss" or "mm:ss.cs" or "mm:ss.ms"
+        Pattern durationPattern = Pattern.compile("^(\\d{1,2}):(\\d{2})(?:[.:](\\d{1,3}))?$");
+        Matcher matcher = durationPattern.matcher(value.trim());
+
+        if (matcher.matches()) {
+            try {
+                long minutes = Long.parseLong(matcher.group(1));
+                long seconds = Long.parseLong(matcher.group(2));
+                long millis = 0;
+
+                String millisStr = matcher.group(3);
+                if (millisStr != null) {
+                    if (millisStr.length() > 3) { // Max 3 digits for ms
+                         System.err.println("Warning: Millisecond part too long in duration in " + contextFileName + ": " + value);
+                         return null;
+                    }
+                    millis = Long.parseLong(millisStr);
+                    if (millisStr.length() == 1) { // e.g., [00:00.1] -> 100ms
+                        millis *= 100;
+                    } else if (millisStr.length() == 2) { // e.g., [00:00.12] -> 120ms (centiseconds)
+                        millis *= 10;
+                    }
+                    // If length is 3, it's already milliseconds.
+                }
+
+                if (minutes < 0 || seconds < 0 || seconds >= 60 || millis < 0 || millis >= 1000) {
+                    System.err.println("Warning: Invalid time components in duration in " + contextFileName + ": " + value);
+                    return null;
+                }
+
                 long totalMillis = (minutes * 60 + seconds) * 1000 + millis;
-                if (totalMillis > Integer.MAX_VALUE) return Integer.MAX_VALUE;
+                if (totalMillis > Integer.MAX_VALUE) {
+                    System.err.println("Warning: Duration value " + totalMillis + "ms exceeds Integer.MAX_VALUE in " + contextFileName + ": " + value);
+                    return null;
+                }
                 return (int) totalMillis;
+            } catch (NumberFormatException e) {
+                System.err.println("Warning: Could not parse numeric parts of duration in " + contextFileName + ": " + value + ". Error: " + e.getMessage());
+                return null;
             }
-        } catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
-            System.err.println("Warning: Could not parse duration in " + contextFileName + ": " + value + " - " + e.getMessage());
+        } else {
+            System.err.println("Warning: Duration format error in " + contextFileName + ". Expected mm:ss[.xxx], got: \"" + value + "\"");
+            return null;
         }
-        return null;
     }
 
     /**
-     * Parses the value string from an LRC [offset:...] tag into milliseconds.
+     * Parses the value string from an LRC {@code [offset:value]} tag into milliseconds.
      *
-     * @param value The raw value string (e.g., "200").
-     * @param contextFileName Filename for logging purposes.
-     * @return Offset in milliseconds as a Long, or null if parsing fails.
+     * @param value The raw offset value string (e.g., "200", "-150").
+     * @param contextFileName The name of the LRC file being parsed, for logging context.
+     * @return Offset in milliseconds as a {@link Long}, or {@code null} if parsing fails.
      */
     private static Long parseOffsetValue(String value, String contextFileName) {
         try {
             return Long.parseLong(value.trim());
         } catch (NumberFormatException e) {
-            System.err.println("Warning: Could not parse offset in " + contextFileName + ": '" + value + "' - " + e.getMessage());
+            System.err.println("Warning: Could not parse offset value in " + contextFileName + ": \"" + value + "\". Error: " + e.getMessage());
             return null;
         }
     }

@@ -1,42 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+<!-- MainView.fxml: Root container for switching between Normal and Fullscreen views. -->
+
 <?import javafx.scene.layout.StackPane?>
 
-<!--
-    This is the new top-level MainView.fxml.
-    It uses a StackPane to manage the visibility of NormalView and FullscreenView.
-    It will be controlled by the refactored MainController.
-    The actual UI for normal and fullscreen modes are defined in
-    NormalView.fxml and FullscreenView.fxml respectively.
--->
 <StackPane fx:id="rootStackPane" stylesheets="@css/base.css" xmlns="http://javafx.com/javafx/19" xmlns:fx="http://javafx.com/fxml/1" fx:controller="controller.MainController">
     <children>
-        <!-- 
-            fx:id="normalView" allows the MainController to get a reference to the root node of NormalView.fxml.
-            If NormalView.fxml's root is a BorderPane, normalView can be injected as BorderPane.
-            The controller for NormalView.fxml (NormalViewController) will be automatically created
-            and can be injected into MainController if fx:id="normalViewController" is added like:
-            <fx:include fx:id="normalView" source="NormalView.fxml">
-                 <fx:script>
-                     var normalViewController = normalView.getController(); // This is one way, or direct injection
-                 </fx:script>
-            </fx:include>
-            Alternatively, the MainController can get a reference to the included controller by
-            naming the fx:id of the include tag with "Controller" appended, e.g., fx:id="normalViewContent".
-            Then, in MainController: @FXML private NormalViewController normalViewContentController;
-
-            For simplicity here, we'll assume MainController gets references via fx:id of the included Node
-            and its associated controller via the fx:id + "Controller" convention.
-            So, if fx:id="normalView", then @FXML private NormalViewController normalViewController;
-        -->
+        <!-- NormalView: Standard windowed interface. Controlled by NormalViewController. -->
         <fx:include fx:id="normalView" source="NormalView.fxml" />
-
-        <!--
-            fx:id="fullscreenView" allows reference to the FullscreenView.fxml's root node.
-            visible="false" ensures it's hidden initially.
-            Its controller (FullscreenViewController) can be accessed similarly.
-            e.g., @FXML private FullscreenViewController fullscreenViewController;
-        -->
+        <!-- FullscreenView: Immersive fullscreen interface. Controlled by FullscreenViewController. Initially hidden. -->
         <fx:include fx:id="fullscreenView" source="FullscreenView.fxml" visible="false" />
     </children>
 </StackPane>

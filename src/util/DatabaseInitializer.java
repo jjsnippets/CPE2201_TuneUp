@@ -1,4 +1,4 @@
-package util; // Define the package for utility classes
+package util;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -13,25 +13,39 @@ import java.sql.Statement;
 public class DatabaseInitializer {
 
     // Private constructor to prevent instantiation of this utility class.
-    private DatabaseInitializer() {}
+    private DatabaseInitializer() {
+        // This constructor is intentionally empty to prevent instantiation.
+    }
 
     /**
-     * Initializes the database schema. Currently, creates the 'songs' table
-     * if it does not exist.
-     * This method obtains its own database connection and closes it afterwards.
+     * Initializes the database schema by creating the 'songs' table if it doesn't already exist.
+     * <p>
+     * The 'songs' table is defined with the following columns:
+     * <ul>
+     *   <li>{@code id}: INTEGER, PRIMARY KEY, AUTOINCREMENT - Unique identifier for each song.</li>
+     *   <li>{@code title}: TEXT, NOT NULL - The title of the song.</li>
+     *   <li>{@code artist}: TEXT, NOT NULL - The artist of the song.</li>
+     *   <li>{@code genre}: TEXT - The genre of the song (nullable).</li>
+     *   <li>{@code duration}: INTEGER, NOT NULL - The duration of the song in milliseconds (must be positive).</li>
+     *   <li>{@code offset}: INTEGER - The global lyric offset in milliseconds (nullable).</li>
+     *   <li>{@code audio_file_path}: TEXT, NOT NULL, UNIQUE - The file path to the audio file (must be unique).</li>
+     *   <li>{@code lyrics_file_path}: TEXT - The file path to the lyrics file (nullable).</li>
+     * </ul>
+     * This method obtains its own database connection and ensures it is closed after the operation.
+     * If any {@link SQLException} occurs during the schema initialization, a {@link RuntimeException}
+     * is thrown to indicate a critical failure in setting up the database.
+     * </p>
      */
     public static void initializeDatabaseSchema() {
         // SQL statement to create the 'songs' table.
         // Uses "IF NOT EXISTS" to avoid errors if the table is already present.
-        // Column names use snake_case which is common in SQL.
-        // Mapping to Java object fields (camelCase) will be handled by the DAO.
         String createSongsTableSQL = """
             CREATE TABLE IF NOT EXISTS songs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 title TEXT NOT NULL,
                 artist TEXT NOT NULL,
                 genre TEXT,
-                duration INTEGER, -- duration in milliseconds (nullable)
+                duration INTEGER NOT NULL, -- duration in milliseconds (NOT NULL)
                 offset INTEGER,   -- global offset in milliseconds (nullable)
                 audio_file_path TEXT NOT NULL UNIQUE,
                 lyrics_file_path TEXT

@@ -1,24 +1,41 @@
-package util; // Make sure this is in the 'util' package
+package util;
 
 import java.sql.Connection;
 import java.sql.SQLException;
 
 /**
- * Handles the core initialization sequence for the TuneUp application,
- * including database connection verification, schema setup, and initial data population.
+ * Handles the core initialization sequence for the TuneUp application.
+ * This includes verifying database connectivity, setting up the database schema,
+ * and populating the initial song data from local files.
+ * <p>
+ * The class ensures that the application starts in a consistent state
+ * with a functional database and available song library. It provides clear
+ * logging for each step of the initialization process and handles potential
+ * errors gracefully.
+ * </p>
  */
 public class ApplicationInitializer {
 
     // Define the directory where song files (mp3, lrc) are located.
     private static final String SONGS_DIRECTORY = "songs";
 
-    // Private constructor to prevent instantiation
-    private ApplicationInitializer() {}
+    // Private constructor to prevent instantiation of this utility class.
+    private ApplicationInitializer() {
+        // This constructor is intentionally empty to prevent instantiation.
+    }
 
     /**
-     * Runs the essential initialization steps for the application.
+     * Runs the essential initialization steps for the TuneUp application.
+     * These steps include:
+     * <ol>
+     *   <li>Testing basic database connectivity.</li>
+     *   <li>Initializing the database schema (creating tables if they don't exist).</li>
+     *   <li>Populating the database with songs from the {@code SONGS_DIRECTORY}.</li>
+     * </ol>
+     * If any of these steps fail, the application initialization is considered unsuccessful,
+     * and appropriate error messages are logged.
      *
-     * @return true if all initialization steps complete successfully, false otherwise.
+     * @return {@code true} if all initialization steps complete successfully, {@code false} otherwise.
      */
     public static boolean initializeApplication() {
         System.out.println("--- Starting Application Initialization ---");

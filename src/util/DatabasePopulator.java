@@ -1,18 +1,26 @@
-package util; // Define the package for utility classes
+package util;
 
 import java.io.IOException;
-import java.nio.file.*;
-import java.sql.Connection;
+import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.Map;
-import java.util.stream.Stream;
 
 /**
  * Utility class to populate the database with song information
  * by scanning a directory for LRC and MP3 file pairs.
  * Extracts metadata solely from LRC files as per requirements.
- * Corresponds to SRS 3.1.3 (database interaction) and uses LRC parsing (FR3.1).
+ * This class directly interacts with the database to insert song records.
+ * <p>
+ * Corresponds to:
+ * <ul>
+ *   <li>SRS 3.1.3: Database interaction for storing song metadata.</li>
+ *   <li>SRS 3.1.3.1: Adherence to the 'songs' table schema, including constraints like NOT NULL and data types for title, artist, duration, etc.</li>
+ *   <li>FR3.1: Parsing LRC files for metadata.</li>
+ * </ul>
  */
 public class DatabasePopulator {
 
@@ -21,11 +29,16 @@ public class DatabasePopulator {
 
     /**
      * Scans the specified directory for .lrc files, attempts to find corresponding .mp3 files,
-     * parses metadata from the .lrc file, and inserts the information into the 'songs' table.
-     * Assumes .mp3 files have the same base name as .lrc files.
+     * parses metadata from the .lrc file, and inserts the song information into the 'songs' table
+     * in the database. It assumes that .mp3 files share the same base name as their .lrc counterparts.
+     * A summary of the population process (files processed, songs added, errors/skips) is printed to standard error.
      *
      * @param directoryPath The path to the directory containing song files (e.g., "songs").
-     * @return The number of new songs successfully added to the database.
+     *                      This path should point to a directory accessible by the application.
+     * @return The number of new songs successfully added to the database. Returns 0 if the
+     *         directoryPath is invalid or no songs could be added.
+     * @see #processSingleLrcFile(Path, Path, PreparedStatement)
+     * @see #printSummary(int, int, int)
      */
     public static int populateFromLrcFiles(String directoryPath) {
         Path dir = Paths.get(directoryPath);
@@ -44,9 +57,8 @@ public class DatabasePopulator {
         int errorsOrSkipped = 0; // Combined counter for simplicity in reporting
 
         // Use try-with-resources for database connection and listing files
-        try (Connection conn = DatabaseUtil.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(insertSQL); // Prepare statement once
-             Stream<Path> stream = Files.list(dir)) {
+        try (PreparedStatement pstmt = DatabaseUtil.getConnection().prepareStatement(insertSQL); // Prepare statement once
+             var stream = Files.list(dir)) {
 
             // Iterate over files in the directory
             for (Path path : (Iterable<Path>) stream::iterator) {
@@ -81,14 +93,30 @@ public class DatabasePopulator {
     }
 
     /**
-     * Processes a single LRC file: finds matching MP3, parses metadata, validates,
-     * and attempts to insert into the database using the provided PreparedStatement.
-     * Errors and skips are logged directly within this method.
+     * Processes a single LRC file:
+     * 1. Derives the expected MP3 file name and checks for its existence.
+     * 2. Parses metadata (title, artist, genre, duration, offset) from the LRC file using {@link LrcParser}.
+     * 3. Validates essential metadata:
+     * <ul>
+     *   <li>Title must be present.</li>
+     *   <li>Artist must be present.</li>
+     *   <li>Duration must be present and a positive integer value.</li>
+     * </ul>
+     * 4. If validation passes, it attempts to insert the song record into the database
+     *    using the provided {@link PreparedStatement}.
      *
-     * @param lrcPath The Path object for the .lrc file.
-     * @param containingDir The directory Path where the lrc file resides.
-     * @param pstmt The PreparedStatement (already prepared with INSERT SQL) to use.
-     * @return true if the song was successfully added, false otherwise (due to skip or error).
+     * Errors encountered during file processing (e.g., missing MP3, missing required metadata,
+     * invalid duration, I/O issues, SQL errors) are logged to standard error, and the method
+     * will return {@code false} for that file. Skipped files (e.g., duplicates based on
+     * unique constraints) are also logged and result in a {@code false} return.
+     *
+     * @param lrcPath The {@link Path} object for the .lrc file to be processed.
+     * @param containingDir The {@link Path} of the directory where the {@code lrcPath} resides,
+     *                      used to resolve the corresponding .mp3 file.
+     * @param pstmt The {@link PreparedStatement} (already prepared with the INSERT SQL command)
+     *              to use for inserting the song data into the database.
+     * @return {@code true} if the song was successfully parsed, validated, and added to the database;
+     *         {@code false} otherwise (due to a skip, validation failure, or error during processing).
      */
     private static boolean processSingleLrcFile(Path lrcPath, Path containingDir, PreparedStatement pstmt) {
         String lrcFileName = lrcPath.getFileName().toString();
@@ -114,18 +142,28 @@ public class DatabasePopulator {
             Integer duration = (Integer) metadata.get("duration");
             Long offset = (Long) metadata.get("offset");
 
-            // Validate required metadata
-            if (title == null || title.trim().isEmpty() || artist == null || artist.trim().isEmpty()) {
-                System.err.println("Warning: Missing required metadata (title or artist) in LRC file: " + lrcFileName + ". Skipping.");
+            // Validate required metadata: title, artist, and duration
+            if (title == null || title.trim().isEmpty()) {
+                System.err.println("Warning: Missing required metadata (title) in LRC file: " + lrcFileName + ". Skipping.");
+                return false; // Not added
+            }
+            if (artist == null || artist.trim().isEmpty()) {
+                System.err.println("Warning: Missing required metadata (artist) in LRC file: " + lrcFileName + ". Skipping.");
+                return false; // Not added
+            }
+            // Duration must be present and positive, consistent with Song object and DB schema (NOT NULL, positive)
+            if (duration == null || duration <= 0) {
+                System.err.println("Warning: Missing or invalid (must be a positive integer) duration in LRC file: "
+                                   + lrcFileName + ". Duration found: " + duration + ". Skipping.");
                 return false; // Not added
             }
 
             // Set parameters for the PreparedStatement
             pstmt.setString(1, title.trim());
             pstmt.setString(2, artist.trim());
-            pstmt.setString(3, genre != null ? genre.trim() : null);
-            pstmt.setObject(4, duration); // setObject handles null Integer
-            pstmt.setObject(5, offset);   // setObject handles null Long
+            pstmt.setString(3, genre != null ? genre.trim() : null); // Genre is optional
+            pstmt.setInt(4, duration); // Duration is now validated as non-null positive int
+            pstmt.setObject(5, offset);   // Offset is optional and can be null
             pstmt.setString(6, mp3FilePathAbs);
             pstmt.setString(7, lrcFilePathAbs);
 
@@ -154,11 +192,15 @@ public class DatabasePopulator {
     }
 
     /**
-     * Prints the summary report of the population process.
+     * Prints a summary report of the database population process to standard output.
+     * This includes the total number of LRC files processed, the number of new songs
+     * successfully added to the database, and the number of files that were skipped
+     * or resulted in errors.
      *
-     * @param filesProcessed Total LRC files looked at.
-     * @param songsAdded Total songs successfully inserted.
-     * @param errorsOrSkipped Total files that were skipped or caused an error.
+     * @param filesProcessed Total number of LRC files encountered and attempted to process.
+     * @param songsAdded Total number of new songs successfully inserted into the database.
+     * @param errorsOrSkipped Total number of files that were skipped (e.g., duplicates, missing MP3s,
+     *                        invalid metadata) or caused an error during processing.
      */
     private static void printSummary(int filesProcessed, int songsAdded, int errorsOrSkipped) {
         System.out.println("-----------------------------------------");
@@ -170,11 +212,14 @@ public class DatabasePopulator {
     }
 
     /**
-     * Helper method to get the base name of a file (name without extension).
-     * Example: "song.lrc" -> "song"
+     * Helper method to get the base name of a file (i.e., the file name without its extension).
+     * For example, "song.lrc" would return "song". If the file name has no extension,
+     * the original file name is returned.
      *
-     * @param fileName The full file name.
-     * @return The base name.
+     * @param fileName The full file name (e.g., "mysong.txt", "archive", "image.jpeg").
+     * @return The base name of the file. If {@code fileName} is {@code null} or empty,
+     *         behavior might be unexpected depending on {@link String#lastIndexOf(int)} and {@link String#substring(int, int)}.
+     *         It's assumed {@code fileName} is a valid, non-null file name string.
      */
     private static String getBaseName(String fileName) {
         int lastDot = fileName.lastIndexOf('.');

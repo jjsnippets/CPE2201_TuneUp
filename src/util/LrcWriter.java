@@ -13,11 +13,14 @@ import java.util.List;
 import java.util.regex.Pattern;
 
 /**
- * Utility class for writing modifications, specifically the timing offset,
- * back to LRC (.lrc) files using the [offset:...] tag.
- * Supports FR3.7 (Persist lyrics timing adjustment).
+ * A non-instantiable utility class for writing modifications, specifically the timing offset,
+ * back to LRC (.lrc) files using the {@code [offset:...]} tag.
+ * This class handles reading an LRC file, updating or adding the offset tag,
+ * and writing the changes back to the file atomically.
+ * <p>
+ * Supports SRS FR3.7: Persist lyrics timing adjustment.
  */
-public class LrcWriter {
+public final class LrcWriter {
     private static final String OFFSET_TAG_PREFIX = "[offset:";
     private static final Pattern OFFSET_TAG_PATTERN = Pattern.compile(
             "^\\[offset:([+-]?\\d+)\\]\\s*$", Pattern.CASE_INSENSITIVE);

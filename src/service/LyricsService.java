@@ -1,12 +1,12 @@
-package service; // Define the package for service classes
+package service;
 
 // --- Model Imports ---
 import model.LyricLine;
 import model.Song;
-import model.SongLyrics; // Now takes lines only in constructor
+import model.SongLyrics;
 
 // --- Util Imports ---
-import util.LrcParser;   // LrcParseResult now has one offset
+import util.LrcParser;
 
 // --- Java IO and NIO Imports ---
 import java.io.IOException;
@@ -16,74 +16,93 @@ import java.nio.file.InvalidPathException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-// import java.util.Objects; // Not strictly needed if List.equals() is used and LyricLine.equals() is sound
 
 // --- JavaFX Imports ---
 import javafx.beans.property.ReadOnlyObjectProperty;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 
 /**
- * Service class responsible for managing lyrics data for songs.
- * It handles loading lyrics from .lrc files using {@link LrcParser},
- * stores the parsed {@link SongLyrics}, and provides an observable list of
- * lyric lines (previous, current, and next two) synchronized with playback time.
- *
- * This service supports the following functional requirements:
- * - FR3.1: Parse LRC file for lyrics and offset. (Handled by LrcParser, managed by this service)
- * - FR3.2: Parse timestamps and text content. (Handled by LrcParser, data used by this service)
- * - FR3.4: Display synchronized lyrics lines (previous, current, next two).
+ * Manages the loading, processing, and provision of song lyrics within the application.
+ * This service is responsible for parsing LRC files, storing the resulting {@link SongLyrics},
+ * and providing an observable list of lyric lines (previous, current, and next two)
+ * synchronized with the song's playback time and effective offset.
+ * <p>
+ * Key functionalities and SRS correlations:
+ * <ul>
+ *   <li><b>FR3.1 (Parse LRC File):</b> Leverages {@link LrcParser} to read LRC files, extracting
+ *       both the lyric lines and any global offset defined in an {@code [offset:...]} tag.</li>
+ *   <li><b>FR3.2 (Parse Timestamps and Text):</b> Relies on {@link LrcParser} for the detailed
+ *       parsing of individual timestamped lyric lines.</li>
+ *   <li><b>FR3.4 (Display Synchronized Lyrics):</b> Provides the {@link #displayLinesProperty()} which
+ *       emits a list of currently relevant lyric lines (previous, current, next, next+1)
+ *       based on playback time and the effective offset, enabling synchronized display.</li>
+ *   <li><b>FR3.3 (Lyric Timing Adjustment):</b> While the initial offset is loaded here (from LRC file),
+ *       the live, dynamic adjustment of this offset is typically managed by a controller (e.g., MainController)
+ *       which then passes the {@code totalLiveOffsetFromController} to {@link #updateCurrentDisplayLines(long, long)}.
+ *       This service stores the {@code initialLoadedOffsetMs} from the file.</li>
+ * </ul>
  */
 public class LyricsService {
 
-    private Song currentSong;       // The song whose lyrics are currently loaded.
-    private SongLyrics currentLyricsHolder; // Holds only lines
-    private long initialLoadedOffsetMs = 0; // Offset read from [offset:...] in LRC
+    private Song currentSong;                   // The song whose lyrics are currently loaded.
+    private SongLyrics currentLyricsHolder;     // Holds the parsed SongLyrics object (lines and original structure).
+    private long initialLoadedOffsetMs = 0;     // Offset read from [offset:...] tag in the LRC file.
 
-    // --- Observable Property for UI ---
+    // --- Observable Property for UI (FR3.4) ---
 
     /**
-     * Wrapper for the observable list of lyric lines to be displayed in the UI.
-     * This list typically contains four elements:
-     * 1. The previous lyric line (or null).
-     * 2. The current lyric line (or null).
-     * 3. The next lyric line (or null).
-     * 4. The second next lyric line (or null).
-     * The list is unmodifiable when exposed via displayLinesProperty().
+     * A read-only JavaFX property wrapper for the list of lyric lines to be displayed.
+     * This list is dynamically updated and typically contains four {@link LyricLine} objects:
+     * <ol>
+     *   <li>The lyric line immediately preceding the current one (or {@code null}).</li>
+     *   <li>The current, active lyric line (or {@code null}).</li>
+     *   <li>The lyric line immediately following the current one (or {@code null}).</li>
+     *   <li>The second lyric line following the current one (or {@code null}).</li>
+     * </ol>
+     * The list itself is unmodifiable. UI components should observe this property for updates.
      */
     private final ReadOnlyObjectWrapper<List<LyricLine>> displayLinesWrapper =
             new ReadOnlyObjectWrapper<>(this, "displayLines", Collections.emptyList());
 
     /**
-     * Provides a read-only observable property containing the list of lyric lines
-     * relevant to the current playback time (previous, current, next, and next+1).
-     * UI components (e.g., {@code MainController}) can listen to this property to update
-     * the lyrics display dynamically.
-     * The returned list may contain null elements as placeholders if corresponding
-     * lyric lines are unavailable (e.g., at the beginning or end of the song).
+     * Provides public, read-only access to the observable property containing the list of
+     * lyric lines relevant to the current playback position (previous, current, next, and next+1).
+     * This directly supports FR3.4 by allowing UI components to bind to or listen for changes
+     * in the displayed lyrics.
      *
-     * @return A {@code ReadOnlyObjectProperty} holding an unmodifiable {@code List<LyricLine>}.
-     *         Corresponds to FR3.4.
+     * @return A {@link ReadOnlyObjectProperty} holding an unmodifiable {@code List<LyricLine>}.
+     *         The list may contain {@code null} elements as placeholders if corresponding
+     *         lyric lines are not available (e.g., at the very beginning or end of the song).
      */
     public ReadOnlyObjectProperty<List<LyricLine>> displayLinesProperty() {
         return displayLinesWrapper.getReadOnlyProperty();
     }
 
     /**
-     * Gets the current list of lyric lines intended for display.
-     * This is a snapshot of the list held by the {@code displayLinesWrapper}.
+     * Gets a snapshot of the current list of lyric lines intended for display.
+     * This is the list currently held by the {@link #displayLinesWrapper}.
      *
      * @return An unmodifiable {@code List<LyricLine>} containing the current set of displayable lyric lines.
+     *         The list will be empty if no lyrics are loaded or if playback is not at a point where lyrics are defined.
      */
     public List<LyricLine> getDisplayLines() {
         return displayLinesWrapper.get();
     }
 
+    /**
+     * Gets the song whose lyrics are currently loaded or were last attempted to be loaded.
+     * @return The current {@link Song}, or {@code null} if no song is active.
+     */
     public Song getCurrentSong() { return currentSong; }
 
     /**
-     * Gets the offset that was initially loaded from the LRC file's [offset:...] tag
-     * for the currently loaded song.
-     * @return The initial loaded offset in milliseconds.
+     * Gets the global offset value (in milliseconds) that was initially loaded from the
+     * LRC file's {@code [offset:...]} tag for the currently loaded song.
+     * This value serves as the base offset before any live adjustments are applied.
+     * (Supports FR3.1, FR3.3)
+     *
+     * @return The initial loaded offset in milliseconds. Returns 0 if no song is loaded,
+     *         no lyrics file was found, or no offset tag was present in the LRC file.
      */
     public long getInitialLoadedOffsetMs() {
         return initialLoadedOffsetMs;
@@ -92,16 +111,24 @@ public class LyricsService {
     // --- Service Methods ---
 
     /**
-     * Loads the lyrics for the specified song.
-     * If a song is provided, it attempts to parse its associated .lrc file using {@link LrcParser}.
-     * If the song is null, or if lyrics have already been loaded for the same song,
-     * or if the song has no lyrics file path, or if parsing fails, the method handles
-     * these cases appropriately, updating the internal state and the {@code displayLinesWrapper}.
+     * Loads the lyrics for the specified {@link Song}.
+     * If a song is provided, this method attempts to parse its associated LRC file using {@link LrcParser}.
+     * The parsed {@link LyricLine}s and the initial file offset are stored.
+     * <p>
+     * Behavior details:
+     * <ul>
+     *   <li>If {@code song} is {@code null}, any currently loaded lyrics are cleared.</li>
+     *   <li>If lyrics for the exact same {@code song} instance are already loaded (and {@code currentLyricsHolder} is not null),
+     *       reloading is skipped to avoid redundant processing. The live offset is managed externally.</li>
+     *   <li>If the song has no lyrics file path specified, an error is logged, and no lyrics are loaded.</li>
+     *   <li>If parsing fails (e.g., {@link IOException}, {@link InvalidPathException}), an error is logged,
+     *       and any previously loaded lyrics are cleared.</li>
+     * </ul>
+     * (Supports FR3.1, FR3.2 via {@link LrcParser})
      *
-     * @param song The {@link Song} object whose lyrics should be loaded. Can be null to clear current lyrics.
-     * @return {@code true} if lyrics were successfully loaded or cleared (for a null song),
-     *         {@code false} if loading failed due to an error (e.g., file not found, parsing error).
-     *         Supports FR3.1 and FR3.2 via {@link LrcParser}.
+     * @param song The {@link Song} object for which lyrics should be loaded. May be {@code null} to clear lyrics.
+     * @return {@code true} if lyrics were successfully loaded or if {@code song} was {@code null} (clearing is successful).
+     *         {@code false} if loading failed due to an error (e.g., file not found, parsing error, no lyrics path).
      */
     public boolean loadLyricsForSong(Song song) {
         if (song == null) {
@@ -158,13 +185,18 @@ public class LyricsService {
 
     /**
      * Updates the observable list of display lines (previous, current, next, next+1)
-     * based on the provided playback time and the total live offset.
-     * This method is typically called by the
-     * {@code MainController} in response to time updates from the {@code PlayerService}.
+     * based on the provided current playback time and the total live offset (which includes
+     * the initial file offset and any dynamic user adjustments).
+     * <p>
+     * This method is typically called by a controller (e.g., {@code MainController}) in response to
+     * time updates from the {@link PlayerService} or when the live offset changes.
+     * It uses the {@link SongLyrics#getIndexAtTime(long, long)} method to determine the current line.
+     * (Supports FR3.4, FR3.3)
      *
-     * @param currentPlaybackMillis Current playback time.
-     * @param totalLiveOffsetFromController The current total effective offset managed by MainController.
-     *                              Corresponds to FR3.4.
+     * @param currentPlaybackMillis The current playback time of the song, in milliseconds.
+     * @param totalLiveOffsetFromController The current total effective offset, in milliseconds,
+     *                                      as managed by the calling controller. This offset is the sum of
+     *                                      the initial file offset and any live user adjustments.
      */
     public void updateCurrentDisplayLines(long currentPlaybackMillis, long totalLiveOffsetFromController) {
         List<LyricLine> newDisplayLines;
@@ -205,9 +237,10 @@ public class LyricsService {
     }
 
     /**
-     * Clears the currently loaded lyrics information and resets the display lines property to empty.
-     * This is typically called when playback stops, the current song is unloaded from the player,
-     * or the application is shutting down.
+     * Clears all currently loaded lyrics information, including the reference to the current song,
+     * the parsed lyrics holder, the initial offset, and resets the {@link #displayLinesProperty() displayLinesProperty}
+     * to an empty list. This is typically called when playback stops, the current song is unloaded
+     * from the player, or the application is preparing to shut down.
      */
     public void clearLyrics() {
         // Check if there's actually anything to clear to avoid redundant operations/logging
@@ -218,7 +251,13 @@ public class LyricsService {
     }
 
     /**
-     * Internal helper to reset lyrics-related state.
+     * Internal helper to reset lyrics-related state:
+     * <ul>
+     *      <li>Sets {@code currentSong} to null.</li>
+     *      <li>Sets {@code currentLyricsHolder} to null.</li>
+     *      <li>Resets {@code initialLoadedOffsetMs} to 0.</li>
+     *      <li>Clears the {@code displayLinesWrapper} by setting it to an empty list if it's not already empty.</li>
+     * </ul>
      */
     private void clearLyricsInternal() {
         this.currentSong = null;
@@ -230,15 +269,15 @@ public class LyricsService {
         }
     }
 
-
     /**
      * Safely retrieves a {@link LyricLine} from a list by its index.
-     * Returns {@code null} if the list is null, the index is out of bounds,
-     * or the element at the index is itself null.
+     * Returns {@code null} if the list is {@code null}, the index is out of bounds
+     * (less than 0 or greater than or equal to list size).
      *
-     * @param lines The list of {@code LyricLine} objects.
-     * @param index The desired index.
-     * @return The {@code LyricLine} at the specified index, or {@code null} if not accessible.
+     * @param lines The list of {@link LyricLine} objects from which to retrieve an element.
+     * @param index The desired index of the element.
+     * @return The {@link LyricLine} at the specified index, or {@code null} if the index is invalid
+     *         or the list is {@code null}.
      */
     private LyricLine getLineAtIndexSafe(List<LyricLine> lines, int index) {
         if (lines != null && index >= 0 && index < lines.size()) {
@@ -248,11 +287,11 @@ public class LyricsService {
     }
 
     /**
-     * Gets the currently loaded {@link SongLyrics} object (which now only holds lines).
-     * This method is primarily for internal use or testing purposes.
+     * Gets the currently loaded {@link SongLyrics} object, which contains the parsed lyric lines.
+     * This method is primarily intended for internal use within the service package or for testing purposes.
      *
-     * @return The current {@code SongLyrics} object, or {@code null} if no lyrics are loaded
-     *         or an error occurred during loading.
+     * @return The current {@link SongLyrics} object, or {@code null} if no lyrics are currently loaded
+     *         or if an error occurred during the last loading attempt.
      */
     public SongLyrics getCurrentLyricsObject() { // Renamed from getCurrentLyrics to avoid conflict if SongLyrics was the direct type
         return currentLyricsHolder;

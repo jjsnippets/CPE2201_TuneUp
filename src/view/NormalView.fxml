@@ -17,24 +17,24 @@
 <?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.VBox?>
 
-<!-- 
-    This FXML defines the 'Normal View' of the TuneUp application.
-    It is intended to be included within a parent FXML (e.g., using <fx:include>)
-    and managed by its own controller (e.g., NormalViewController).
--->
+<!-- Normal View Root Pane -->
 <BorderPane fx:id="normalViewRootPane" prefHeight="700.0" prefWidth="1000.0" styleClass="root-pane" stylesheets="@css/base.css, @css/themes/light-theme.css, @css/components/common-components.css, @css/components/table-styles.css, @css/components/queue-styles.css, @css/components/lyrics-styles.css, @css/components/player-controls.css, @css/components/scrollbar-styles.css, @css/components/normal-view.css" xmlns="http://javafx.com/javafx/19" xmlns:fx="http://javafx.com/fxml/1" fx:controller="controller.NormalViewController">
+    <!-- Center: Main content area with Library and Lyrics/Queue -->
     <center>
         <SplitPane dividerPositions="0.35" prefHeight="160.0" prefWidth="200.0" BorderPane.alignment="CENTER">
             <items>
-                <!-- Left Side: Library, Search, Filter -->
+                <!-- Left Side: Song Library, Search, and Filter Controls -->
                 <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="160.0" prefWidth="100.0">
                     <children>
                         <VBox spacing="10.0" AnchorPane.bottomAnchor="10.0" AnchorPane.leftAnchor="10.0" AnchorPane.rightAnchor="10.0" AnchorPane.topAnchor="10.0">
                             <children>
+                                <!-- Library Search Field -->
                                 <Label styleClass="section-label" text="Search Library" />
                                 <TextField fx:id="searchTextField" promptText="Enter title or artist..." />
+                                <!-- Genre Filter Dropdown -->
                                 <Label styleClass="section-label" text="Filter by Genre" />
                                 <ComboBox fx:id="genreFilterComboBox" maxWidth="1.7976931348623157E308" promptText="All Genres" />
+                                <!-- Song Library Table -->
                                 <Label styleClass="section-label" text="Song Library" />
                                 <TableView fx:id="songTableView" VBox.vgrow="ALWAYS">
                                     <columns>
@@ -45,17 +45,19 @@
                                         <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
                                     </columnResizePolicy>
                                 </TableView>
+                                <!-- Add to Queue Button -->
                                 <Button fx:id="addToQueueButton" mnemonicParsing="false" onAction="#handleAddToQueue" text="Add Selected to Queue" maxWidth="1.7976931348623157E308" />
                             </children>
                         </VBox>
                     </children>
                 </AnchorPane>
 
-                <!-- Right Side: Queue and Lyrics Display -->
+                <!-- Right Side: Playback Queue and Lyrics Display Area -->
                 <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="160.0" prefWidth="100.0">
                     <children>
                         <VBox spacing="5.0" AnchorPane.bottomAnchor="10.0" AnchorPane.leftAnchor="10.0" AnchorPane.rightAnchor="10.0" AnchorPane.topAnchor="10.0">
                             <children>
+                                <!-- Playback Queue Display -->
                                 <TitledPane fx:id="queueTitledPane" animated="false" collapsible="true" expanded="true" styleClass="queue-titled-pane">
                                     <graphic>
                                         <Label styleClass="queue-header-label" text="Up Next" />
@@ -67,6 +69,7 @@
                                         <Insets bottom="2.0" />
                                     </VBox.margin>
                                 </TitledPane>
+                                <!-- Lyrics Display Container -->
                                 <VBox fx:id="lyricsContainer" alignment="CENTER" spacing="8.0" styleClass="lyrics-container" VBox.vgrow="ALWAYS">
                                     <padding>
                                         <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
@@ -89,12 +92,14 @@
             </items>
         </SplitPane>
     </center>
+    <!-- Bottom: Playback Controls and Information Bar -->
     <bottom>
         <VBox spacing="5.0" BorderPane.alignment="CENTER">
             <padding>
                 <Insets bottom="10.0" left="10.0" right="10.0" top="5.0" />
             </padding>
             <children>
+                <!-- Now Playing Information -->
                 <HBox alignment="CENTER_LEFT" spacing="10.0" styleClass="now-playing-bar">
                     <padding>
                         <Insets left="10.0" right="10.0" top="5.0" bottom="5.0" />
@@ -105,6 +110,7 @@
                         <Label fx:id="nowPlayingArtistLabel" styleClass="now-playing-label-info" text="-" minWidth="-Infinity"/>
                     </children>
                 </HBox>
+                <!-- Playback Progress Slider and Time Labels -->
                 <HBox alignment="CENTER" spacing="10.0">
                     <padding>
                         <Insets left="10.0" right="10.0" />
@@ -115,13 +121,16 @@
                         <Label fx:id="totalDurationLabel" minWidth="-Infinity" styleClass="time-label" text="0:00" />
                     </children>
                 </HBox>
+                <!-- Main Control Buttons Bar -->
                 <HBox alignment="CENTER" spacing="15.0" styleClass="control-button-bar">
                     <children>
+                        <!-- Application Controls -->
                         <Button fx:id="fullscreenToggleButton" mnemonicParsing="false" onAction="#handleFullscreenToggle" text="Toggle Fullscreen" />
                         <Button fx:id="themeButton" mnemonicParsing="false" onAction="#handleThemeToggle" text="Dark Mode" />
 
                         <Region HBox.hgrow="ALWAYS" />
 
+                        <!-- Playback Controls -->
                         <Button fx:id="playPauseButton" mnemonicParsing="false" onAction="#handlePlayPause" prefWidth="80.0" text="Play" />
                         <Button fx:id="skipButton" mnemonicParsing="false" onAction="#handleSkip" text="Skip" />
                         <Button fx:id="stopButton" mnemonicParsing="false" onAction="#handleStop" text="Stop All" />
@@ -130,6 +139,7 @@
 
                         <Region prefWidth="30.0" />
 
+                        <!-- Lyric Offset Controls -->
                         <Button fx:id="increaseOffsetButton" mnemonicParsing="false" onAction="#handleIncreaseOffset" styleClass="lyric-offset-button" text="+" />
                         <Label fx:id="lyricOffsetLabel" styleClass="lyric-offset-label" text="0 ms">
                             <HBox.margin>

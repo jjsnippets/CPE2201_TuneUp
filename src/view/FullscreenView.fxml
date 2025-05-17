@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+<!-- FullscreenView.fxml: Immersive lyric display and playback controls for fullscreen mode. -->
+
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.Label?>
@@ -9,13 +11,9 @@
 <?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.VBox?>
 
-<!--
-    This FXML defines the 'Fullscreen View' of the TuneUp application.
-    It is intended to be included within a parent FXML (e.g., using <fx:include>)
-    and managed by its own controller (e.g., FullscreenViewController).
--->
 <BorderPane fx:id="fullscreenViewRootPane" styleClass="fullscreen-root-pane" stylesheets="@css/base.css, @css/themes/light-theme.css, @css/components/common-components.css, @css/components/player-controls.css, @css/components/lyrics-styles.css, @css/components/scrollbar-styles.css, @css/components/fullscreen-view.css" xmlns="http://javafx.com/javafx/19" xmlns:fx="http://javafx.com/fxml/1" fx:controller="controller.FullscreenViewController">
     <top>
+        <!-- Top bar: Displays next song and queue count. -->
         <HBox fx:id="fullscreenTopBar" alignment="CENTER_LEFT" styleClass="fullscreen-top-bar">
             <padding><Insets top="10" right="20" bottom="10" left="20" /></padding>
             <children>
@@ -26,6 +24,7 @@
         </HBox>
     </top>
     <center>
+        <!-- Center area: Displays lyrics. -->
         <VBox fx:id="fullscreenLyricsContainer" alignment="CENTER" spacing="15.0" styleClass="fullscreen-lyrics-container" BorderPane.alignment="CENTER">
             <padding><Insets top="20" right="20" bottom="20" left="20" /></padding>
             <children>
@@ -37,10 +36,13 @@
         </VBox>
     </center>
     <bottom>
+        <!-- Bottom bar: Contains "Now Playing" info, playback slider, and control buttons. -->
         <VBox styleClass="fullscreen-bottom-bar" spacing="2.0" BorderPane.alignment="CENTER">
             <padding><Insets top="8" right="20" bottom="8" left="20" /></padding>
             <children>
-                <HBox alignment="CENTER_LEFT" spacing="10.0" styleClass="fullscreen-now-playing-bar">                    <padding>
+                <!-- "Now Playing" section: Displays current song title and artist. -->
+                <HBox alignment="CENTER_LEFT" spacing="10.0" styleClass="fullscreen-now-playing-bar">
+                    <padding>
                         <Insets left="0" right="10.0" top="3.0" bottom="3.0" />
                     </padding>
                     <children>
@@ -48,14 +50,21 @@
                         <Label fx:id="fullscreenNowPlayingTitleLabel" styleClass="fullscreen-now-playing-label-info" text="-" HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
                         <Label fx:id="fullscreenNowPlayingArtistLabel" styleClass="fullscreen-now-playing-label-info" text="-" minWidth="-Infinity"/>
                     </children>
-                </HBox>                <HBox alignment="CENTER" spacing="20.0">
-                    <children>                        <Label fx:id="fullscreenCurrentTimeLabel" styleClass="fullscreen-time-label" text="0:00" style="-fx-font-size: 18px; -fx-min-width: 80px; -fx-alignment: center;"/>
+                </HBox>
+                <!-- Playback slider section: Shows current time, total duration, and allows seeking. -->
+                <HBox alignment="CENTER" spacing="20.0">
+                    <children>
+                        <Label fx:id="fullscreenCurrentTimeLabel" styleClass="fullscreen-time-label" text="0:00" style="-fx-font-size: 18px; -fx-min-width: 80px; -fx-alignment: center;"/>
                         <Slider fx:id="fullscreenPlaybackSlider" HBox.hgrow="ALWAYS" styleClass="fullscreen-slider" style="-fx-control-inner-background: #B0BEC5;"/>
                         <Label fx:id="fullscreenTotalDurationLabel" styleClass="fullscreen-time-label" text="0:00" style="-fx-font-size: 18px; -fx-min-width: 80px; -fx-alignment: center;"/>
-                    </children>                    <padding>
+                    </children>
+                    <padding>
                         <Insets left="10.0" right="10.0" top="6.0" bottom="6.0" />
                     </padding>
-                </HBox><HBox alignment="CENTER" spacing="20.0" styleClass="fullscreen-controls-hbox">                    <padding>
+                </HBox>
+                <!-- Control buttons section: Exit fullscreen, theme, play/pause, skip, stop, and lyric offset. -->
+                <HBox alignment="CENTER" spacing="20.0" styleClass="fullscreen-controls-hbox">
+                    <padding>
                         <Insets top="5.0" bottom="5.0" left="10.0" right="10.0"/>
                     </padding>
                     <children>
@@ -67,13 +76,19 @@
                         <Button fx:id="fullscreenPlayPauseButton" text="Play" onAction="#handleFullscreenPlayPause" styleClass="fullscreen-button" prefWidth="80.0"/>
                         <Button fx:id="fullscreenSkipButton" text="Skip" onAction="#handleFullscreenSkip" styleClass="fullscreen-button"/>
                         <Button fx:id="fullscreenStopButton" text="Stop All" onAction="#handleFullscreenStop" styleClass="fullscreen-button"/>
-                          <Region HBox.hgrow="ALWAYS"/>
+                        <Region HBox.hgrow="ALWAYS"/>
 
-                        <Region prefWidth="30.0" />                        <HBox alignment="CENTER" spacing="15.0">                            <children>                                <Button fx:id="fullscreenIncreaseOffsetButton" text="+" onAction="#handleFullscreenIncreaseOffset" styleClass="fullscreen-button"/>                                <Label fx:id="fullscreenLyricOffsetLabel" text="0 ms" styleClass="fullscreen-lyric-offset-label" style="-fx-font-size: 18px; -fx-min-width: 80px; -fx-alignment: center;">
+                        <Region prefWidth="30.0" />
+                        <!-- Lyric offset controls: Increase, decrease, and display current offset. -->
+                        <HBox alignment="CENTER" spacing="15.0">
+                            <children>
+                                <Button fx:id="fullscreenIncreaseOffsetButton" text="+" onAction="#handleFullscreenIncreaseOffset" styleClass="fullscreen-button"/>
+                                <Label fx:id="fullscreenLyricOffsetLabel" text="0 ms" styleClass="fullscreen-lyric-offset-label" style="-fx-font-size: 18px; -fx-min-width: 80px; -fx-alignment: center;">
                                     <HBox.margin><Insets left="10.0" right="10.0" /></HBox.margin>
                                 </Label>
                                 <Button fx:id="fullscreenDecreaseOffsetButton" text="-" onAction="#handleFullscreenDecreaseOffset" styleClass="fullscreen-button"/>
-                            </children>                            <padding>
+                            </children>
+                            <padding>
                                 <Insets top="5.0" bottom="3.0" />
                             </padding>
                         </HBox>

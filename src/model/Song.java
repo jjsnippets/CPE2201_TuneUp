@@ -1,111 +1,137 @@
-package model; // Define the package for model classes
+package model;
 
 import java.util.Objects;
-import java.util.concurrent.TimeUnit; // Keep for potential detailed toString formatting
+import java.util.concurrent.TimeUnit;
 
 /**
- * Represents a song entity within the TuneUp application.
- * This class holds metadata such as title, artist, genre, duration, offset,
- * as well as file paths for the corresponding audio and lyrics files.
- * It corresponds to functional requirements FR1.1, FR2.1, FR2.2, FR3.1
- * and is designed to be stored and retrieved via the SQLite database (Section 3.1.3, 3.3.3).
- * This class is immutable.
+ * Represents a song entity within the TuneUp Karaoke application.
+ * This immutable class encapsulates all metadata associated with a song,
+ * including its title, artist, genre, duration, playback offset, and file paths
+ * for audio and lyrics.
+ * <p>
+ * This class is central to managing song information and directly supports several
+ * functional requirements (FR) from the Software Requirements Specification (SRS):
+ * <ul>
+ *   <li>FR1.1: Storing and accessing the audio file path.</li>
+ *   <li>FR2.1: Storing and accessing core song metadata (title, artist, genre, duration).</li>
+ *   <li>FR2.2: Providing song information for display (title, artist, duration).</li>
+ *   <li>FR3.1: Storing and accessing the lyrics file path and playback offset.</li>
+ * </ul>
+ * Instances of this class are typically created from data retrieved from the
+ * application's database (SQLite, as per SRS Section 3.1.3, 3.3.3).
  */
 public class Song {
 
-    // Unique identifier for the song, typically used as the primary key in the database.
-    private final int id;
-
-    // The title of the song (FR2.1, FR2.2).
-    private final String title;
-
-    // The artist of the song (FR2.1, FR2.2).
-    private final String artist;
-
-    // The genre of the song (FR2.1, FR2.2). Can be null.
-    private final String genre;
-
-    // Duration in milliseconds. Stored as Integer to allow null.
-    private final Integer duration; // CORRECTED TYPE: Integer
-
-    // Global offset in milliseconds. Stored as Long to allow null.
-    private final Long offset;
-
-    // The file path to the audio file (e.g., .mp3) for this song (FR1.1).
-    private final String audioFilePath;
-
-    // The file path to the lyrics file (e.g., .lrc) for this song (FR3.1). Can be null.
-    private final String lyricsFilePath;
+    private final int id;               // Unique identifier (Primary Key in database)
+    private final String title;         // Song title (SRS FR2.1, FR2.2)
+    private final String artist;        // Song artist (SRS FR2.1, FR2.2)
+    private final String genre;         // Song genre, can be null (SRS FR2.1, FR2.2)
+    private final Integer duration;     // Duration in milliseconds, nullable (SRS FR2.1, FR2.2)
+    private final Long offset;          // Lyrics synchronization offset in milliseconds, nullable (SRS FR3.1)
+    private final String audioFilePath; // Path to the audio file (SRS FR1.1)
+    private final String lyricsFilePath;// Path to the lyrics file, can be null (SRS FR3.1)
 
     /**
-     * Constructs a new immutable Song object.
+     * Constructs an immutable {@code Song} object with specified details.
      *
-     * @param id             The unique identifier for the song.
-     * @param title          The title of the song. Cannot be null or blank.
-     * @param artist         The artist of the song. Cannot be null or blank.
-     * @param genre          The genre of the song. Can be null.
-     * @param duration       The duration of the song in milliseconds. Can be null.
-     * @param offset         The global lyrics offset in milliseconds. Can be null.
-     * @param audioFilePath  The file path to the audio file. Cannot be null or blank.
-     * @param lyricsFilePath The file path to the lyrics file. Can be null.
-     * @throws NullPointerException if title, artist, or audioFilePath are null.
-     * @throws IllegalArgumentException if title, artist, or audioFilePath are blank.
+     * @param id                        The unique identifier for the song (e.g., from the database).
+     * @param title                     The title of the song. Must not be null or blank.
+     * @param artist                    The artist of the song. Must not be null or blank.
+     * @param genre                     The genre of the song. May be {@code null} if not specified.
+     * @param duration                  The duration of the song in milliseconds. Must not be null and must be positive.
+     * @param offset                    The global lyrics synchronization offset in milliseconds. May be {@code null}.
+     * @param audioFilePath             The file path to the audio file (e.g., .mp3). Must not be null or blank.
+     * @param lyricsFilePath            The file path to the lyrics file (e.g., .lrc). May be {@code null}.
+     * @throws NullPointerException     if {@code title}, {@code artist}, {@code audioFilePath}, or {@code duration} are {@code null}.
+     * @throws IllegalArgumentException if {@code title}, {@code artist}, or {@code audioFilePath} are blank, or if {@code duration} is not positive.
      */
     public Song(int id, String title, String artist, String genre, Integer duration, Long offset, String audioFilePath, String lyricsFilePath) {
-        // Basic validation for required fields
-        Objects.requireNonNull(title, "Title cannot be null");
-        Objects.requireNonNull(artist, "Artist cannot be null");
-        Objects.requireNonNull(audioFilePath, "Audio file path cannot be null");
+        Objects.requireNonNull(title, "Song title cannot be null.");
+        Objects.requireNonNull(artist, "Song artist cannot be null.");
+        Objects.requireNonNull(audioFilePath, "Song audio file path cannot be null.");
+        Objects.requireNonNull(duration, "Song duration cannot be null.");
 
-        // Additional validation for blank strings (optional but recommended)
-        if (title.isBlank()) throw new IllegalArgumentException("Title cannot be blank");
-        if (artist.isBlank()) throw new IllegalArgumentException("Artist cannot be blank");
-        if (audioFilePath.isBlank()) throw new IllegalArgumentException("Audio file path cannot be blank");
-
-        // Validate duration if not null (optional)
-        // if (duration != null && duration < 0) throw new IllegalArgumentException("Duration cannot be negative");
+        if (title.isBlank()) {
+            throw new IllegalArgumentException("Song title cannot be blank.");
+        }
+        if (artist.isBlank()) {
+            throw new IllegalArgumentException("Song artist cannot be blank.");
+        }
+        if (audioFilePath.isBlank()) {
+            throw new IllegalArgumentException("Song audio file path cannot be blank.");
+        }
+        if (duration <= 0) {
+            throw new IllegalArgumentException("Song duration must be positive.");
+        }
 
         this.id = id;
-        this.title = title;
-        this.artist = artist;
-        this.genre = genre;
-        this.duration = duration; // Assign Integer
+        this.title = title.trim();
+        this.artist = artist.trim();
+        this.genre = (genre != null) ? genre.trim() : null;
+        this.duration = duration;
         this.offset = offset;
-        this.audioFilePath = audioFilePath;
-        this.lyricsFilePath = lyricsFilePath;
+        this.audioFilePath = audioFilePath.trim();
+        this.lyricsFilePath = (lyricsFilePath != null) ? lyricsFilePath.trim() : null;
     }
 
     // --- Getters ---
 
-    /** Gets the unique identifier of the song. @return The song ID. */
+    /**
+     * Returns the unique identifier of the song.
+     * @return The song ID.
+     */
     public int getId() { return id; }
 
-    /** Gets the title of the song. @return The song title. */
+    /**
+     * Returns the title of the song (supports FR2.1, FR2.2).
+     * @return The song title.
+     */
     public String getTitle() { return title; }
 
-    /** Gets the artist of the song. @return The song artist. */
+    /**
+     * Returns the artist of the song (supports FR2.1, FR2.2).
+     * @return The song artist.
+     */
     public String getArtist() { return artist; }
 
-    /** Gets the genre of the song. @return The song genre, or null if not specified. */
+    /**
+     * Returns the genre of the song (supports FR2.1, FR2.2).
+     * @return The song genre, or {@code null} if not specified.
+     */
     public String getGenre() { return genre; }
 
-    /** Gets the duration of the song in milliseconds. @return The song duration as Integer, or null. */
-    public Integer getDuration() { return duration; } // CORRECTED RETURN TYPE: Integer
-
-    /** Gets the global lyrics offset in milliseconds. @return The global offset as Long, or null. */
-    public Long getOffset() { return offset; }
-
-    /** Gets the file path to the audio file. @return The audio file path. */
-    public String getAudioFilePath() { return audioFilePath; }
-
-    /** Gets the file path to the lyrics file. @return The lyrics file path, or null. */
-    public String getLyricsFilePath() { return lyricsFilePath; }
-
-    // --- Utility method for formatted duration (optional) ---
+    /**
+     * Returns the duration of the song in milliseconds (supports FR2.1, FR2.2).
+     * @return The song duration as an {@link Integer}, or {@code null} if not specified.
+     */
+    public Integer getDuration() { return duration; }
 
     /**
-     * Gets the duration formatted as mm:ss.
-     * @return The formatted duration string, or "N/A" if duration is null.
+     * Returns the global lyrics synchronization offset in milliseconds (supports FR3.1).
+     * @return The global offset as a {@link Long}, or {@code null} if not specified.
+     */
+    public Long getOffset() { return offset; }
+
+    /**
+     * Returns the file path to the audio file (supports FR1.1).
+     * @return The audio file path.
+     */
+    public String getAudioFilePath() { return audioFilePath; }
+
+    /**
+     * Returns the file path to the lyrics file (supports FR3.1).
+     * @return The lyrics file path, or {@code null} if not available.
+     */
+    public String getLyricsFilePath() { return lyricsFilePath; }
+
+    // --- Utility method for formatted duration ---
+
+    /**
+     * Returns the duration of the song formatted as a string "mm:ss" (minutes:seconds).
+     * If the duration is not set (null), it returns "N/A".
+     * This is useful for displaying the duration in a user-friendly format (supports FR2.2).
+     *
+     * @return A string representing the formatted duration, or "N/A".
      */
     public String getFormattedDuration() {
         if (duration == null) {
@@ -116,54 +142,46 @@ public class Song {
         return String.format("%d:%02d", minutes, seconds);
     }
 
-
-    // --- Overridden methods ---
+    // --- Overridden Object methods ---
 
     /**
-     * Returns a simple string representation (Title - Artist).
-     * Suitable for default display in UI lists.
-     * @return A simple string representation of the song.
+     * Returns a string representation of the song, typically "Title - Artist".
+     * This format is suitable for display in lists or simple textual representations.
+     *
+     * @return A string in the format "[Song Title] - [Song Artist]".
      */
     @Override
     public String toString() {
         return title + " - " + artist;
-        /*
-        // Alternative detailed version for debugging:
-        return String.format("Song{id=%d, title='%s', artist='%s', genre='%s', duration=%s (%s ms), offset=%s ms, audio='%s', lyrics='%s'}",
-                id,
-                title,
-                artist,
-                genre != null ? genre : "N/A",
-                getFormattedDuration(), // Use helper method
-                duration != null ? duration : "N/A",
-                offset != null ? offset : "N/A",
-                audioFilePath,
-                lyricsFilePath != null ? lyricsFilePath : "N/A"
-        );
-        */
     }
 
     /**
-     * Compares this Song to another object for equality based on their IDs.
-     * @param o The object to compare with.
-     * @return true if the objects have the same ID, false otherwise.
+     * Indicates whether some other object is "equal to" this one.
+     * Two {@code Song} objects are considered equal if they have the same {@code id}.
+     * This is consistent with the typical behavior for database-backed entities where
+     * the ID is the primary key.
+     *
+     * @param o The reference object with which to compare.
+     * @return {@code true} if this song is the same as the {@code o} argument (i.e., same ID);
+     *         {@code false} otherwise.
      */
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Song song = (Song) o;
-        // Equality is primarily based on the unique ID for database entities
         return id == song.id;
     }
 
     /**
-     * Generates a hash code based primarily on the unique ID.
-     * @return The hash code value for this object.
+     * Returns a hash code value for the song.
+     * The hash code is based on the song's {@code id}, ensuring that equal songs
+     * (as per the {@link #equals(Object)} method) have the same hash code.
+     *
+     * @return A hash code value for this song.
      */
     @Override
     public int hashCode() {
-        // Hash code based primarily on the unique ID for consistency with equals()
         return Objects.hash(id);
     }
 }
